@@ -56,4 +56,14 @@ npm test
 
 The tests start the compiled MCP stdio server through the official MCP client. They use only the synthetic context under `tests/fixtures/sample-context` and disposable copies in the operating system temporary directory. They do not require or inspect the private RMMS context.
 
-DOCX and PDF readers remain covered by the v0.1 manual integration validation. Automated binary fixtures are deferred until they can be added without complicating the foundational suite.
+## Source retrieval
+
+PCW keeps retrieval selective and on demand:
+
+1. resolve a configured logical shared context or workstream;
+2. list available sources without loading their contents;
+3. read only the selected document.
+
+Supported readers are Markdown/plain text (`.md` and `.txt`), DOCX, and PDF. DOCX extraction is text-oriented. PDF extraction supports selectable text; OCR and image extraction are not supported, so image-only PDFs may return little or no text. Readers operate locally and every source remains constrained by the PCW filesystem boundary.
+
+The automated suite includes fully synthetic DOCX and PDF fixtures. No private context is required.

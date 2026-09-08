@@ -566,3 +566,71 @@ Intentionally deferred:
 Recommended Block 5: extract the text, DOCX, and PDF source-reader domain behind the established filesystem boundary. Preserve all MCP contracts, add small synthetic DOCX/PDF fixtures if robust, and keep inventory and continuity workflow modularization out of that block.
 
 The final commit hash is reported in the Block 4 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 5 Validation
+
+Block 5 scope:
+
+```text
+Source discovery and document readers extraction.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `refactor: extract PCW source readers`.
+
+New modules:
+
+- `src/sources/source-types.ts`: typed source entry, listing, and resolved-file metadata;
+- `src/sources/source-service.ts`: non-recursive discovery plus safe existing-file resolution;
+- `src/readers/reader-validation.ts`: explicit extension and file-type checks;
+- `src/readers/text-reader.ts`: UTF-8 Markdown/TXT reading;
+- `src/readers/docx-reader.ts`: Mammoth raw-text extraction with warnings;
+- `src/readers/pdf-reader.ts`: pdf-parse text extraction with guaranteed parser cleanup.
+
+Source behavior and security:
+
+- source discovery remains non-recursive and returns the existing sorted metadata contract;
+- source reads remain on demand and do not preload document content;
+- source paths are checked against both `PCW_CONTEXT_ROOT` and the selected configured section;
+- existing targets retain realpath protection against external symlinks and Windows junctions;
+- readers require existing files and explicitly enforce `.md`/`.txt`, `.docx`, or `.pdf` according to the selected MCP tool;
+- absolute paths in current MCP responses remain unchanged for compatibility.
+
+Synthetic reader fixtures:
+
+- `tests/fixtures/sample-context/engineering/backend-material/synthetic.docx` is a minimal local OOXML document;
+- `tests/fixtures/sample-context/engineering/backend-material/synthetic.pdf` is a minimal local selectable-text PDF;
+- both contain only fabricated PCW test text, were generated locally, and add no dependency.
+- `.gitattributes` marks DOCX/PDF as binary so checkout line-ending conversion cannot corrupt them.
+
+Validation results:
+
+```text
+npm run build: passed
+previous characterization/config/filesystem tests: 41 passed, 0 failed
+new source/reader tests: 17 passed, 0 failed
+total: 58 passed, 0 failed
+DOCX direct and MCP extraction: passed
+PDF direct and MCP extraction: passed
+```
+
+Production MCP behavior, tool names, input schemas, output fields, error envelopes, and supported formats remain compatible. `src/server.ts` still owns logical scope orchestration and MCP response formatting, but no longer implements directory discovery or document parsing.
+
+Reader limitations:
+
+- DOCX processing extracts text and warnings only; it does not render images;
+- PDF processing extracts selectable text only; OCR, image extraction, and layout reconstruction are not supported;
+- the previously documented local filesystem TOCTOU limitation remains;
+- absolute paths remain exposed in validated POC responses and may be reconsidered only in a separately approved API/privacy change.
+
+Intentionally deferred:
+
+- inventory parsing/search extraction;
+- continuity workflow extraction;
+- shared logical-scope/tool orchestration deduplication;
+- global MCP response/error refactoring;
+- lower-level TOCTOU-resistant file handles;
+- server bootstrap changes.
+
+Recommended Block 6: extract inventory retrieval and section search into a typed inventory service behind the existing config/filesystem boundaries. Preserve the current Markdown section matching, case-insensitive search behavior, MCP response contract, and all 58 tests. Do not combine continuity workflow or global MCP response refactoring into that block.
+
+The final commit hash is reported in the Block 5 completion response and can be recovered with `git log -1 --oneline`.

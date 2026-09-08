@@ -10,7 +10,8 @@ The v0.2 foundation is not a complete sandbox or production security boundary. T
 - Every configured path used for filesystem access is resolved through the filesystem boundary and must remain inside that root.
 - Relative traversal and absolute paths outside the root are rejected with path-aware containment checks.
 - Absolute configured paths remain supported only when they resolve inside the root.
-- Source-reading tools are additionally confined to their configured shared-context or workstream section.
+- Source discovery and reading are additionally confined to their configured shared-context or workstream section.
+- Existing source targets pass realpath containment and file readers reject directory inputs.
 - Continuity update is the only intended write capability.
 - Continuity writes require the expected SHA-256 and reject stale versions.
 - Previous continuity is backed up before atomic replacement.

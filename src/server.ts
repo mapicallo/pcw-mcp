@@ -2,7 +2,6 @@ import {
   copyFile,
   mkdir,
   readFile,
-  readdir,
   stat
 } from "node:fs/promises";
 
@@ -11,8 +10,6 @@ import {
   join
 } from "node:path";
 
-import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
 import writeFileAtomic from "write-file-atomic";
 
 import { McpServer } from "@modelcontextprotocol/server";
@@ -29,11 +26,25 @@ import {
 import { sha256Text } from "./filesystem/hashing.js";
 import {
   assertExistingPathInsideBase,
-  assertExistingSourcePath,
   ensureInsideBase,
-  resolveConfiguredPath,
-  resolveSourcePath
+  resolveConfiguredPath
 } from "./filesystem/paths.js";
+import {
+  isDocxSourcePath,
+  readDocxFile
+} from "./readers/docx-reader.js";
+import {
+  isPdfSourcePath,
+  readPdfFile
+} from "./readers/pdf-reader.js";
+import {
+  isTextSourcePath,
+  readTextFile
+} from "./readers/text-reader.js";
+import {
+  discoverSources,
+  resolveSourceFile
+} from "./sources/source-service.js";
 
 const server = new McpServer({
   name: "pcw-mcp",
@@ -552,37 +563,7 @@ server.registerTool(
     const absolutePath = resolveConfiguredPath(contextRoot, configuredPath);
 
     try {
-      await assertExistingPathInsideBase(contextRoot, absolutePath);
-      const entries = await readdir(absolutePath, {
-        withFileTypes: true
-      });
-
-      const sources = await Promise.all(
-        entries.map(async (entry) => {
-          const entryPath = join(absolutePath, entry.name);
-          await assertExistingSourcePath(
-            contextRoot,
-            absolutePath,
-            entryPath
-          );
-          const info = await stat(entryPath);
-
-          return {
-            name: entry.name,
-            type: entry.isDirectory()
-              ? "directory"
-              : entry.isFile()
-                ? "file"
-                : "other",
-            sizeBytes: info.size,
-            modifiedAt: info.mtime.toISOString()
-          };
-        })
-      );
-
-      sources.sort((a, b) =>
-        a.name.localeCompare(b.name)
-      );
+      const listing = await discoverSources(contextRoot, configuredPath);
 
       return {
         content: [
@@ -593,9 +574,9 @@ server.registerTool(
                 scope,
                 name: logicalName,
                 path: configuredPath,
-                absolutePath,
-                sourceCount: sources.length,
-                sources
+                absolutePath: listing.absolutePath,
+                sourceCount: listing.sources.length,
+                sources: listing.sources
               },
               null,
               2
@@ -924,9 +905,7 @@ server.registerTool(
       };
     }
 
-    const extension = extname(source).toLowerCase();
-
-    if (![".md", ".txt"].includes(extension)) {
+    if (!isTextSourcePath(source)) {
       return {
         isError: true,
         content: [
@@ -946,27 +925,13 @@ server.registerTool(
       };
     }
 
-    const basePath = resolveConfiguredPath(contextRoot, configuredPath);
-
     try {
-      const sourcePath = resolveSourcePath(
+      const resolvedSource = await resolveSourceFile(
         contextRoot,
-        basePath,
+        configuredPath,
         source
       );
-      await assertExistingSourcePath(
-        contextRoot,
-        basePath,
-        sourcePath
-      );
-
-      const info = await stat(sourcePath);
-
-      if (!info.isFile()) {
-        throw new Error("Source is not a file");
-      }
-
-      const text = await readFile(sourcePath, "utf8");
+      const text = await readTextFile(resolvedSource.absolutePath);
 
       return {
         content: [
@@ -977,9 +942,9 @@ server.registerTool(
                 scope,
                 name: logicalName,
                 source,
-                absolutePath: sourcePath,
-                sizeBytes: info.size,
-                modifiedAt: info.mtime.toISOString(),
+                absolutePath: resolvedSource.absolutePath,
+                sizeBytes: resolvedSource.sizeBytes,
+                modifiedAt: resolvedSource.modifiedAt,
                 text
               },
               null,
@@ -1112,9 +1077,7 @@ server.registerTool(
       };
     }
 
-    const extension = extname(source).toLowerCase();
-
-    if (extension !== ".docx") {
+    if (!isDocxSourcePath(source)) {
       return {
         isError: true,
         content: [
@@ -1133,29 +1096,13 @@ server.registerTool(
       };
     }
 
-    const basePath = resolveConfiguredPath(contextRoot, configuredPath);
-
     try {
-      const sourcePath = resolveSourcePath(
+      const resolvedSource = await resolveSourceFile(
         contextRoot,
-        basePath,
+        configuredPath,
         source
       );
-      await assertExistingSourcePath(
-        contextRoot,
-        basePath,
-        sourcePath
-      );
-
-      const info = await stat(sourcePath);
-
-      if (!info.isFile()) {
-        throw new Error("Source is not a file");
-      }
-
-      const result = await mammoth.extractRawText({
-        path: sourcePath
-      });
+      const result = await readDocxFile(resolvedSource.absolutePath);
 
       return {
         content: [
@@ -1166,11 +1113,11 @@ server.registerTool(
                 scope,
                 name: logicalName,
                 source,
-                absolutePath: sourcePath,
-                sizeBytes: info.size,
-                modifiedAt: info.mtime.toISOString(),
-                text: result.value,
-                warnings: result.messages
+                absolutePath: resolvedSource.absolutePath,
+                sizeBytes: resolvedSource.sizeBytes,
+                modifiedAt: resolvedSource.modifiedAt,
+                text: result.text,
+                warnings: result.warnings
               },
               null,
               2
@@ -1302,7 +1249,7 @@ server.registerTool(
       };
     }
 
-    if (extname(source).toLowerCase() !== ".pdf") {
+    if (!isPdfSourcePath(source)) {
       return {
         isError: true,
         content: [
@@ -1321,58 +1268,34 @@ server.registerTool(
       };
     }
 
-    const basePath = resolveConfiguredPath(contextRoot, configuredPath);
-
     try {
-      const sourcePath = resolveSourcePath(
+      const resolvedSource = await resolveSourceFile(
         contextRoot,
-        basePath,
+        configuredPath,
         source
       );
-      await assertExistingSourcePath(
-        contextRoot,
-        basePath,
-        sourcePath
-      );
+      const text = await readPdfFile(resolvedSource.absolutePath);
 
-      const info = await stat(sourcePath);
-
-      if (!info.isFile()) {
-        throw new Error("Source is not a file");
-      }
-
-      const pdfBuffer = await readFile(sourcePath);
-
-      const parser = new PDFParse({
-        data: pdfBuffer
-      });
-
-      try {
-        const result = await parser.getText();
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  scope,
-                  name: logicalName,
-                  source,
-                  absolutePath: sourcePath,
-                  sizeBytes: info.size,
-                  modifiedAt: info.mtime.toISOString(),
-                  text: result.text
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
-      } finally {
-        await parser.destroy();
-      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                scope,
+                name: logicalName,
+                source,
+                absolutePath: resolvedSource.absolutePath,
+                sizeBytes: resolvedSource.sizeBytes,
+                modifiedAt: resolvedSource.modifiedAt,
+                text
+              },
+              null,
+              2
+            )
+          }
+        ]
+      };
     } catch (error) {
       return {
         isError: true,
