@@ -454,3 +454,59 @@ An in-place `npm ci` attempt was blocked on Windows because the active Cursor an
 Recommended Block 3: incrementally extract configuration loading, logical scope resolution, MCP response helpers, hashing, and safe path resolution from `src/server.ts` while keeping the characterization suite green. Then harden configured read paths with focused regression tests. Do not add product features during that refactor.
 
 The final commit hash is reported in the Block 2 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 3 Validation
+
+Block 3 scope:
+
+```text
+Typed configuration and logical model extraction.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `refactor: extract typed PCW configuration layer`.
+
+New modules:
+
+- `src/domain/pcw-types.ts`: typed project, path, inventory, shared-context, workstream, complete configuration, and resolved-entry contracts;
+- `src/config/pcw-schema.ts`: Zod runtime schema for the current external YAML contract;
+- `src/config/pcw-config.ts`: canonical uncached loader, concise configuration errors, typed map access, case-insensitive logical lookup, and configured-path resolution.
+
+Schema and compatibility decisions:
+
+- the top-level YAML value must be an object;
+- `version`, when present, is a string or number;
+- `project.id` and `project.name`, when present, are strings;
+- `inventory.path` and all other path fields, when present, are non-empty strings;
+- `shared_context` and `workstreams` are optional dynamic maps;
+- workstream `context` and `continuity` are independently optional;
+- specialized context therefore remains optional;
+- unknown logical names are not hardcoded;
+- configuration is reread and revalidated for each tool call, with no cache;
+- invalid YAML and schema violations raise concise `PcwConfigError` messages at the load boundary.
+
+All independent YAML reads/parses and config-related `any` annotations were removed from `src/server.ts`. Tool names, schemas, response fields, reader logic, inventory logic, continuity writing, and server bootstrap were not redesigned.
+
+Validation results:
+
+```text
+npm run build: passed
+characterization tests: 14 passed, 0 failed
+configuration unit tests: 10 passed, 0 failed
+total: 24 passed, 0 failed
+```
+
+Unit coverage includes valid loading, invalid YAML, invalid structure, dynamic shared names, both workstream context variants, canonical case-insensitive lookup, unknown lookup, malformed path types, and uncached reload behavior.
+
+Intentionally deferred:
+
+- broader MCP response/error formatting;
+- source reader extraction;
+- inventory extraction;
+- continuity service extraction;
+- server bootstrap changes;
+- configuration caching;
+- broad filesystem security refactor.
+
+Recommended Block 4: extract a dedicated filesystem path boundary and harden every configured read path against escaping the PCW context root. Add focused synthetic regression tests for relative and absolute configured-path escapes while preserving the 24 existing tests and current MCP contracts. Do not begin reader or continuity modularization in the same block.
+
+The final commit hash is reported in the Block 3 completion response and can be recovered with `git log -1 --oneline`.

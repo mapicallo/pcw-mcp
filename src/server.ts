@@ -22,8 +22,16 @@ import writeFileAtomic from "write-file-atomic";
 
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { parse } from "yaml";
 import * as z from "zod/v4";
+
+import {
+  findSharedContext,
+  findWorkstream,
+  getSharedContexts,
+  getWorkstreams,
+  loadPcwConfig,
+  resolveConfiguredPath
+} from "./config/pcw-config.js";
 
 const server = new McpServer({
   name: "pcw-mcp",
@@ -50,7 +58,7 @@ async function getPathStatus(path: string | null) {
     };
   }
 
-  const absolutePath = resolve(contextRoot, path);
+  const absolutePath = resolveConfiguredPath(contextRoot, path);
 
   try {
     const info = await stat(absolutePath);
@@ -163,10 +171,7 @@ server.registerTool(
     inputSchema: z.object({})
   },
   async () => {
-    const configPath = join(contextRoot, "pcw.yml");
-
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
+    const { config, configPath } = await loadPcwConfig(contextRoot);
 
     const result = {
       contextRoot,
@@ -199,15 +204,12 @@ server.registerTool(
     inputSchema: z.object({})
   },
   async () => {
-    const configPath = join(contextRoot, "pcw.yml");
+    const { config } = await loadPcwConfig(contextRoot);
 
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
-
-    const workstreamsConfig = config?.workstreams ?? {};
+    const workstreamsConfig = getWorkstreams(config);
 
     const workstreams = Object.entries(workstreamsConfig).map(
-      ([name, value]: [string, any]) => ({
+      ([name, value]) => ({
         name,
         contextPath: value?.context?.path ?? null,
         continuityPath: value?.continuity?.path ?? null
@@ -239,18 +241,13 @@ server.registerTool(
     })
   },
   async ({ name }) => {
-    const configPath = join(contextRoot, "pcw.yml");
+    const { config } = await loadPcwConfig(contextRoot);
 
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
-
-    const workstreamsConfig = config?.workstreams ?? {};
+    const workstreamsConfig = getWorkstreams(config);
 
     // Permitimos SNMP, snmp, Snmp...
-    const realName = Object.keys(workstreamsConfig).find(
-      (candidate) =>
-        candidate.toLowerCase() === name.trim().toLowerCase()
-    );
+    const resolvedWorkstream = findWorkstream(config, name);
+    const realName = resolvedWorkstream?.name;
 
     if (!realName) {
       const available = Object.keys(workstreamsConfig);
@@ -273,7 +270,7 @@ server.registerTool(
       };
     }
 
-    const workstream = workstreamsConfig[realName];
+    const workstream = resolvedWorkstream?.config;
 
     const contextPath = workstream?.context?.path ?? null;
     const continuityPath = workstream?.continuity?.path ?? null;
@@ -320,17 +317,12 @@ server.registerTool(
     })
   },
   async ({ name }) => {
-    const configPath = join(contextRoot, "pcw.yml");
+    const { config } = await loadPcwConfig(contextRoot);
 
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
+    const workstreamsConfig = getWorkstreams(config);
 
-    const workstreamsConfig = config?.workstreams ?? {};
-
-    const realName = Object.keys(workstreamsConfig).find(
-      (candidate) =>
-        candidate.toLowerCase() === name.trim().toLowerCase()
-    );
+    const resolvedWorkstream = findWorkstream(config, name);
+    const realName = resolvedWorkstream?.name;
 
     if (!realName) {
       return {
@@ -352,7 +344,7 @@ server.registerTool(
     }
 
     const continuityPath =
-      workstreamsConfig[realName]?.continuity?.path ?? null;
+      resolvedWorkstream?.config.continuity?.path ?? null;
 
     if (!continuityPath) {
       return {
@@ -372,7 +364,7 @@ server.registerTool(
       };
     }
 
-    const absolutePath = resolve(contextRoot, continuityPath);
+    const absolutePath = resolveConfiguredPath(contextRoot, continuityPath);
 
     try {
       const continuity = await readFile(absolutePath, "utf8");
@@ -426,16 +418,13 @@ server.registerTool(
     inputSchema: z.object({})
   },
   async () => {
-    const configPath = join(contextRoot, "pcw.yml");
+    const { config } = await loadPcwConfig(contextRoot);
 
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
-
-    const sharedContextConfig = config?.shared_context ?? {};
+    const sharedContextConfig = getSharedContexts(config);
 
     const sections = await Promise.all(
       Object.entries(sharedContextConfig).map(
-        async ([name, value]: [string, any]) => {
+        async ([name, value]) => {
           const path = value?.path ?? null;
           const status = await getPathStatus(path);
 
@@ -479,22 +468,16 @@ server.registerTool(
   },
 
   async ({ scope, name }) => {
-    const configPath = join(contextRoot, "pcw.yml");
-
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
+    const { config } = await loadPcwConfig(contextRoot);
 
     let logicalName: string | null = null;
     let configuredPath: string | null = null;
 
     if (scope === "shared") {
-      const sharedConfig = config?.shared_context ?? {};
+      const sharedConfig = getSharedContexts(config);
 
-      logicalName =
-        Object.keys(sharedConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === name.trim().toLowerCase()
-        ) ?? null;
+      const resolvedSharedContext = findSharedContext(config, name);
+      logicalName = resolvedSharedContext?.name ?? null;
 
       if (!logicalName) {
         return {
@@ -515,17 +498,14 @@ server.registerTool(
         };
       }
 
-      configuredPath = sharedConfig[logicalName]?.path ?? null;
+      configuredPath = resolvedSharedContext?.config.path ?? null;
     }
 
     if (scope === "workstream") {
-      const workstreamsConfig = config?.workstreams ?? {};
+      const workstreamsConfig = getWorkstreams(config);
 
-      logicalName =
-        Object.keys(workstreamsConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === name.trim().toLowerCase()
-        ) ?? null;
+      const resolvedWorkstream = findWorkstream(config, name);
+      logicalName = resolvedWorkstream?.name ?? null;
 
       if (!logicalName) {
         return {
@@ -547,7 +527,7 @@ server.registerTool(
       }
 
       configuredPath =
-        workstreamsConfig[logicalName]?.context?.path ?? null;
+        resolvedWorkstream?.config.context?.path ?? null;
 
       if (!configuredPath) {
         return {
@@ -586,7 +566,7 @@ server.registerTool(
       };
     }
 
-    const absolutePath = resolve(contextRoot, configuredPath);
+    const absolutePath = resolveConfiguredPath(contextRoot, configuredPath);
 
     try {
       const entries = await readdir(absolutePath, {
@@ -663,10 +643,7 @@ server.registerTool(
     inputSchema: z.object({})
   },
   async () => {
-    const configPath = join(contextRoot, "pcw.yml");
-
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
+    const { config } = await loadPcwConfig(contextRoot);
 
     const inventoryPath = config?.inventory?.path ?? null;
 
@@ -688,7 +665,7 @@ server.registerTool(
       };
     }
 
-    const absolutePath = resolve(contextRoot, inventoryPath);
+    const absolutePath = resolveConfiguredPath(contextRoot, inventoryPath);
 
     try {
       const info = await stat(absolutePath);
@@ -775,10 +752,7 @@ server.registerTool(
   },
 
   async ({ query, limit }) => {
-    const configPath = join(contextRoot, "pcw.yml");
-
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
+    const { config } = await loadPcwConfig(contextRoot);
 
     const inventoryPath = config?.inventory?.path ?? null;
 
@@ -800,7 +774,7 @@ server.registerTool(
       };
     }
 
-    const absolutePath = resolve(contextRoot, inventoryPath);
+    const absolutePath = resolveConfiguredPath(contextRoot, inventoryPath);
 
     try {
       const inventory = await readFile(absolutePath, "utf8");
@@ -879,22 +853,16 @@ server.registerTool(
   },
 
   async ({ scope, name, source }) => {
-    const configPath = join(contextRoot, "pcw.yml");
-
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
+    const { config } = await loadPcwConfig(contextRoot);
 
     let logicalName: string | null = null;
     let configuredPath: string | null = null;
 
     if (scope === "shared") {
-      const sharedConfig = config?.shared_context ?? {};
+      const sharedConfig = getSharedContexts(config);
 
-      logicalName =
-        Object.keys(sharedConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === name.trim().toLowerCase()
-        ) ?? null;
+      const resolvedSharedContext = findSharedContext(config, name);
+      logicalName = resolvedSharedContext?.name ?? null;
 
       if (!logicalName) {
         return {
@@ -915,17 +883,14 @@ server.registerTool(
         };
       }
 
-      configuredPath = sharedConfig[logicalName]?.path ?? null;
+      configuredPath = resolvedSharedContext?.config.path ?? null;
     }
 
     if (scope === "workstream") {
-      const workstreamsConfig = config?.workstreams ?? {};
+      const workstreamsConfig = getWorkstreams(config);
 
-      logicalName =
-        Object.keys(workstreamsConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === name.trim().toLowerCase()
-        ) ?? null;
+      const resolvedWorkstream = findWorkstream(config, name);
+      logicalName = resolvedWorkstream?.name ?? null;
 
       if (!logicalName) {
         return {
@@ -947,7 +912,7 @@ server.registerTool(
       }
 
       configuredPath =
-        workstreamsConfig[logicalName]?.context?.path ?? null;
+        resolvedWorkstream?.config.context?.path ?? null;
     }
 
     if (!configuredPath) {
@@ -990,7 +955,7 @@ server.registerTool(
       };
     }
 
-    const basePath = resolve(contextRoot, configuredPath);
+    const basePath = resolveConfiguredPath(contextRoot, configuredPath);
 
     try {
       const sourcePath = ensureInsideBase(
@@ -1070,22 +1035,16 @@ server.registerTool(
   },
 
   async ({ scope, name, source }) => {
-    const configPath = join(contextRoot, "pcw.yml");
-
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
+    const { config } = await loadPcwConfig(contextRoot);
 
     let logicalName: string | null = null;
     let configuredPath: string | null = null;
 
     if (scope === "shared") {
-      const sharedConfig = config?.shared_context ?? {};
+      const sharedConfig = getSharedContexts(config);
 
-      logicalName =
-        Object.keys(sharedConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === name.trim().toLowerCase()
-        ) ?? null;
+      const resolvedSharedContext = findSharedContext(config, name);
+      logicalName = resolvedSharedContext?.name ?? null;
 
       if (!logicalName) {
         return {
@@ -1106,17 +1065,14 @@ server.registerTool(
         };
       }
 
-      configuredPath = sharedConfig[logicalName]?.path ?? null;
+      configuredPath = resolvedSharedContext?.config.path ?? null;
     }
 
     if (scope === "workstream") {
-      const workstreamsConfig = config?.workstreams ?? {};
+      const workstreamsConfig = getWorkstreams(config);
 
-      logicalName =
-        Object.keys(workstreamsConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === name.trim().toLowerCase()
-        ) ?? null;
+      const resolvedWorkstream = findWorkstream(config, name);
+      logicalName = resolvedWorkstream?.name ?? null;
 
       if (!logicalName) {
         return {
@@ -1138,7 +1094,7 @@ server.registerTool(
       }
 
       configuredPath =
-        workstreamsConfig[logicalName]?.context?.path ?? null;
+        resolvedWorkstream?.config.context?.path ?? null;
     }
 
     if (!configuredPath) {
@@ -1180,7 +1136,7 @@ server.registerTool(
       };
     }
 
-    const basePath = resolve(contextRoot, configuredPath);
+    const basePath = resolveConfiguredPath(contextRoot, configuredPath);
 
     try {
       const sourcePath = ensureInsideBase(
@@ -1263,22 +1219,16 @@ server.registerTool(
   },
 
   async ({ scope, name, source }) => {
-    const configPath = join(contextRoot, "pcw.yml");
-
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
+    const { config } = await loadPcwConfig(contextRoot);
 
     let logicalName: string | null = null;
     let configuredPath: string | null = null;
 
     if (scope === "shared") {
-      const sharedConfig = config?.shared_context ?? {};
+      const sharedConfig = getSharedContexts(config);
 
-      logicalName =
-        Object.keys(sharedConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === name.trim().toLowerCase()
-        ) ?? null;
+      const resolvedSharedContext = findSharedContext(config, name);
+      logicalName = resolvedSharedContext?.name ?? null;
 
       if (!logicalName) {
         return {
@@ -1299,17 +1249,14 @@ server.registerTool(
         };
       }
 
-      configuredPath = sharedConfig[logicalName]?.path ?? null;
+      configuredPath = resolvedSharedContext?.config.path ?? null;
     }
 
     if (scope === "workstream") {
-      const workstreamsConfig = config?.workstreams ?? {};
+      const workstreamsConfig = getWorkstreams(config);
 
-      logicalName =
-        Object.keys(workstreamsConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === name.trim().toLowerCase()
-        ) ?? null;
+      const resolvedWorkstream = findWorkstream(config, name);
+      logicalName = resolvedWorkstream?.name ?? null;
 
       if (!logicalName) {
         return {
@@ -1331,7 +1278,7 @@ server.registerTool(
       }
 
       configuredPath =
-        workstreamsConfig[logicalName]?.context?.path ?? null;
+        resolvedWorkstream?.config.context?.path ?? null;
     }
 
     if (!configuredPath) {
@@ -1371,7 +1318,7 @@ server.registerTool(
       };
     }
 
-    const basePath = resolve(contextRoot, configuredPath);
+    const basePath = resolveConfiguredPath(contextRoot, configuredPath);
 
     try {
       const sourcePath = ensureInsideBase(
@@ -1470,18 +1417,12 @@ server.registerTool(
   },
 
   async ({ name, content, expectedSha256 }) => {
-    const configPath = join(contextRoot, "pcw.yml");
+    const { config } = await loadPcwConfig(contextRoot);
 
-    const yamlContent = await readFile(configPath, "utf8");
-    const config = parse(yamlContent);
+    const workstreamsConfig = getWorkstreams(config);
 
-    const workstreamsConfig = config?.workstreams ?? {};
-
-    const realName =
-      Object.keys(workstreamsConfig).find(
-        (candidate) =>
-          candidate.toLowerCase() === name.trim().toLowerCase()
-      ) ?? null;
+    const resolvedWorkstream = findWorkstream(config, name);
+    const realName = resolvedWorkstream?.name ?? null;
 
     if (!realName) {
       return {
@@ -1503,7 +1444,7 @@ server.registerTool(
     }
 
     const continuityPath =
-      workstreamsConfig[realName]?.continuity?.path ?? null;
+      resolvedWorkstream?.config.continuity?.path ?? null;
 
     if (!continuityPath) {
       return {
@@ -1550,7 +1491,7 @@ server.registerTool(
        */
       const absolutePath = ensureInsideBase(
         contextRoot,
-        resolve(contextRoot, continuityPath)
+        resolveConfiguredPath(contextRoot, continuityPath)
       );
 
       const info = await stat(absolutePath);

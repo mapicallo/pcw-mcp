@@ -41,6 +41,15 @@ runbooks/
 
 Both can represent the same PCW concepts if `pcw.yml` maps those physical folders into shared context, workstream context, continuity, and inventory.
 
+
+## Runtime Configuration Contract
+
+The external `pcw.yml` document is loaded through one typed configuration boundary and validated with Zod on every MCP tool call. It is intentionally not cached, so edits become visible without restarting the server.
+
+The current compatible contract accepts optional project metadata, inventory, shared-context maps, and workstream maps. When present, project identifiers and names must be strings, version must be a string or number, and configured paths must be non-empty strings. Workstream context and continuity are independently optional.
+
+Shared-context and workstream keys remain dynamic logical names. Lookups are case-insensitive while responses preserve the canonical configured spelling. Paths continue to define user-owned physical locations; PCW does not infer folders from logical names.
+
 ## Workstreams
 
 A workstream represents persistent task/domain state. Examples using fictional names:
