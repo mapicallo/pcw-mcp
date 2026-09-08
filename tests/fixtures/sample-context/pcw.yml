@@ -1,0 +1,24 @@
+version: 1
+
+project:
+  id: sample-pcw
+  name: Sample Persistent Context Workspace
+
+inventory:
+  path: catalog/inventory.md
+
+shared_context:
+  general:
+    path: knowledge/base
+  organization:
+    path: company/handbook
+
+workstreams:
+  BACKEND:
+    context:
+      path: engineering/backend-material
+    continuity:
+      path: state/BACKEND.md
+  OPERATIONS:
+    continuity:
+      path: state/OPERATIONS.md

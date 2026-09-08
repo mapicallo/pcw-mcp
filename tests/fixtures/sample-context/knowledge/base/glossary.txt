@@ -1,0 +1,2 @@
+gateway: fictional entry point for sample requests
+worker: fictional component that processes queued jobs

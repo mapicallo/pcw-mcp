@@ -38,3 +38,22 @@ The POC is local-first and does not require a backend, account, database, cloud 
 - [v0.1 POC validation](docs/v0.1-poc-validation.md)
 - [Security notes](docs/security.md)
 - [Roadmap](docs/roadmap.md)
+
+## Build and test
+
+Install dependencies from the lockfile and compile the MCP server:
+
+```text
+npm ci
+npm run build
+```
+
+Run the automated characterization suite:
+
+```text
+npm test
+```
+
+The tests start the compiled MCP stdio server through the official MCP client. They use only the synthetic context under `tests/fixtures/sample-context` and disposable copies in the operating system temporary directory. They do not require or inspect the private RMMS context.
+
+DOCX and PDF readers remain covered by the v0.1 manual integration validation. Automated binary fixtures are deferred until they can be added without complicating the foundational suite.

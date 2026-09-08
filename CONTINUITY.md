@@ -34,7 +34,7 @@ v0.1 baseline tag:
 v0.1.0-poc
 ```
 
-The annotated local tag points to `0b3f912`, the successful v0.1 POC baseline. It has not been pushed automatically.
+The annotated tag points to `0b3f912`, the successful v0.1 POC baseline. Both the tag and `v0.2-foundation` branch are published on `origin`.
 
 ## Project Purpose
 
@@ -379,24 +379,21 @@ Prefer minimal dependencies. Consider Node's built-in `node:test` first.
 ## Suggested Next Steps
 
 1. If starting fresh, read this file first, then inspect the actual workspace.
-2. Inspect actual workspace before changing anything.
-3. Run `npm.cmd install` if dependencies are missing.
-4. Confirm current branch is `v0.2-foundation`.
-5. Run `npx.cmd tsc`.
-6. Push `v0.2-foundation` and decide whether to push the local tag `v0.1.0-poc`.
-7. Recommended next block: add project scripts and characterization tests using only synthetic temporary/sample contexts.
-8. After tests exist, refactor helpers and config first.
-9. Harden read path security.
-10. Split MCP tools into modules.
-11. Add sanitized examples/templates.
+2. Confirm the branch is `v0.2-foundation` and run `npm ci`.
+3. Run `npm run build` and `npm test` before structural changes.
+4. Start Block 3 by extracting config loading and logical scope resolution.
+5. Centralize safe path resolution and add tests for configured paths escaping the context root.
+6. Extract MCP response, hashing, inventory, reader, and continuity helpers incrementally.
+7. Keep every characterization test green and do not add product features.
+8. Add sanitized examples/templates only after the core boundaries are stable.
 
 ## Deferred Intentionally
 
 - No refactor of `src/server.ts` was performed in Block 1.
 - No MCP tools were added or changed.
 - No RMMS context was inspected.
-- No tests were added yet.
-- No tag push was performed automatically.
+- Automated DOCX and PDF fixtures remain deferred after Block 2.
+- No v0.2 release tag has been created.
 - No production/distribution infrastructure was introduced.
 
 ## Current Human Preference
@@ -404,3 +401,56 @@ Prefer minimal dependencies. Consider Node's built-in `node:test` first.
 The user wants to continue incrementally, preserving the validated v0.1 behavior.
 
 Before broad v0.2 changes, propose the plan and wait for approval.
+## Block 2 Validation
+
+Block 2 scope:
+
+```text
+Build/test foundation and v0.1 characterization tests.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `test: add PCW v0.1 characterization suite`.
+
+Test architecture:
+
+- Node's built-in `node:test` and `node:assert`;
+- TypeScript execution through the existing `tsx` dependency;
+- official `@modelcontextprotocol/client` stdio transport;
+- compiled production entry point `dist/server.js`;
+- synthetic committed fixture at `tests/fixtures/sample-context`;
+- OS-temporary fixture copies for every continuity write test;
+- process and temporary-directory cleanup in reusable test helpers.
+
+Characterized behavior:
+
+- project information and configured inventory path;
+- workstream discovery from `pcw.yml`;
+- workstream filesystem status, including `OPERATIONS` with continuity but no specialized context;
+- shared context and source metadata listing;
+- complete inventory retrieval and case-insensitive section search;
+- selective Markdown and TXT reads;
+- continuity path, content, and SHA-256;
+- successful optimistic-concurrency update;
+- backup of previous continuity under `.pcw/history`;
+- stale-write rejection without data loss;
+- source path traversal rejection;
+- unknown-workstream error response.
+
+DOCX and PDF automation is deferred. The readers remain manually/integration validated from v0.1; creating and maintaining binary fixtures was not justified for this foundational block.
+
+Production behavior was not changed and `src/server.ts` was not refactored. Only package scripts and the official MCP client development dependency were added around production code.
+
+Validation results:
+
+```text
+npm ci in an isolated clean copy: passed
+npm run build: passed
+npm test: 14 passed, 0 failed
+repeated npm test: passed without repository changes
+```
+
+An in-place `npm ci` attempt was blocked on Windows because the active Cursor and Codex MCP sessions had the native `canvas` module loaded. The clean-copy validation proves the lockfile and fresh-checkout workflow; `npm install` restored the active workspace without interrupting either client.
+
+Recommended Block 3: incrementally extract configuration loading, logical scope resolution, MCP response helpers, hashing, and safe path resolution from `src/server.ts` while keeping the characterization suite green. Then harden configured read paths with focused regression tests. Do not add product features during that refactor.
+
+The final commit hash is reported in the Block 2 completion response and can be recovered with `git log -1 --oneline`.
