@@ -17,6 +17,8 @@ The v0.2 foundation is not a complete sandbox or production security boundary. T
 - Continuity writes require the expected SHA-256 and reject stale versions.
 - Previous continuity is backed up before atomic replacement.
 - History directories and continuity targets are checked against the context root.
+- Canonical workstream names containing path separators, traversal components, NUL characters, or no visible characters are rejected before being used as history directory names.
+- History directories are created in checked stages, and backup creation must succeed before continuity replacement begins.
 
 PCW-MCP must not be treated as a general filesystem browser. Configuration and tool inputs do not grant access outside the selected context root.
 
@@ -38,6 +40,8 @@ A source path that remains inside the global root but escapes its selected secti
 For existing targets, PCW-MCP resolves the real paths of the root and target before reading metadata or content. Existing source targets are checked against both the real context root and the real configured section. This rejects symbolic links and Windows junctions that lead outside an allowed boundary.
 
 A residual time-of-check/time-of-use risk remains: a local actor with concurrent filesystem write access could replace a link or path after the `realpath` check and before the subsequent open, copy, or atomic-write operation. Fully eliminating that race requires lower-level handle-based and platform-specific controls and is deferred.
+
+SHA comparison provides optimistic stale-write detection, not a filesystem lock or compare-and-swap primitive. Two truly simultaneous local updates can both validate the same version before either replacement completes. PCW does not claim distributed or multi-process write consistency.
 
 The server therefore does not claim protection against a malicious local user who can mutate the context tree concurrently.
 

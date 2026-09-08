@@ -1,16 +1,4 @@
-import {
-  copyFile,
-  mkdir,
-  readFile,
-  stat
-} from "node:fs/promises";
-
-import {
-  extname,
-  join
-} from "node:path";
-
-import writeFileAtomic from "write-file-atomic";
+import { stat } from "node:fs/promises";
 
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
@@ -23,12 +11,20 @@ import {
   getWorkstreams,
   loadPcwConfig
 } from "./config/pcw-config.js";
-import { sha256Text } from "./filesystem/hashing.js";
 import {
   assertExistingPathInsideBase,
-  ensureInsideBase,
   resolveConfiguredPath
 } from "./filesystem/paths.js";
+import {
+  ContinuityNotConfiguredError,
+  ContinuityNotMarkdownError,
+  ContinuityReadError,
+  ContinuityStaleWriteError,
+  ContinuityUpdateError,
+  ContinuityWorkstreamNotFoundError,
+  getContinuitySnapshot,
+  updateContinuity
+} from "./continuity/continuity-service.js";
 import {
   InventoryNotFileError,
   loadInventoryDocument,
@@ -279,57 +275,12 @@ server.registerTool(
   async ({ name }) => {
     const { config } = await loadPcwConfig(contextRoot);
 
-    const workstreamsConfig = getWorkstreams(config);
-
-    const resolvedWorkstream = findWorkstream(config, name);
-    const realName = resolvedWorkstream?.name;
-
-    if (!realName) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `Workstream '${name}' is not defined`,
-                availableWorkstreams: Object.keys(workstreamsConfig)
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    }
-
-    const continuityPath =
-      resolvedWorkstream?.config.continuity?.path ?? null;
-
-    if (!continuityPath) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `Workstream '${realName}' has no continuity document configured`
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    }
-
-    const absolutePath = resolveConfiguredPath(contextRoot, continuityPath);
-
     try {
-      await assertExistingPathInsideBase(contextRoot, absolutePath);
-      const continuity = await readFile(absolutePath, "utf8");
-      const continuitySha256 = sha256Text(continuity);
+      const snapshot = await getContinuitySnapshot(
+        contextRoot,
+        config,
+        name
+      );
 
       return {
         content: [
@@ -337,11 +288,11 @@ server.registerTool(
             type: "text",
             text: JSON.stringify(
               {
-                workstream: realName,
-                path: continuityPath,
-                sha256: continuitySha256,
-                absolutePath,
-                continuity
+                workstream: snapshot.workstream,
+                path: snapshot.configuredPath,
+                sha256: snapshot.sha256,
+                absolutePath: snapshot.absolutePath,
+                continuity: snapshot.content
               },
               null,
               2
@@ -350,6 +301,44 @@ server.registerTool(
         ]
       };
     } catch (error) {
+      if (error instanceof ContinuityWorkstreamNotFoundError) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: error.message,
+                  availableWorkstreams: error.availableWorkstreams
+                },
+                null,
+                2
+              )
+            }
+          ]
+        };
+      }
+
+      if (error instanceof ContinuityNotConfiguredError) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ error: error.message }, null, 2)
+            }
+          ]
+        };
+      }
+
+      const workstream =
+        error instanceof ContinuityReadError ? error.workstream : name;
+      const path =
+        error instanceof ContinuityReadError
+          ? error.absolutePath ?? error.configuredPath
+          : null;
+
       return {
         isError: true,
         content: [
@@ -357,8 +346,11 @@ server.registerTool(
             type: "text",
             text: JSON.stringify(
               {
-                error: `Could not read continuity document for '${realName}'`,
-                path: absolutePath
+                error:
+                  "Could not read continuity document for '" +
+                  workstream +
+                  "'",
+                path
               },
               null,
               2
@@ -369,7 +361,6 @@ server.registerTool(
     }
   }
 );
-
 
 server.registerTool(
   "list_shared_context",
@@ -408,6 +399,7 @@ server.registerTool(
     };
   }
 );
+
 
 server.registerTool(
   "list_sources",
@@ -1307,98 +1299,39 @@ server.registerTool(
   async ({ name, content, expectedSha256 }) => {
     const { config } = await loadPcwConfig(contextRoot);
 
-    const workstreamsConfig = getWorkstreams(config);
-
-    const resolvedWorkstream = findWorkstream(config, name);
-    const realName = resolvedWorkstream?.name ?? null;
-
-    if (!realName) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `Workstream '${name}' is not defined`,
-                availableWorkstreams: Object.keys(workstreamsConfig)
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    }
-
-    const continuityPath =
-      resolvedWorkstream?.config.continuity?.path ?? null;
-
-    if (!continuityPath) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `Workstream '${realName}' has no continuity document configured`
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    }
-
-    if (extname(continuityPath).toLowerCase() !== ".md") {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: "Continuity documents must be Markdown (.md)",
-                path: continuityPath
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    }
-
     try {
-      /*
-       * Security boundary:
-       * even if pcw.yml were modified incorrectly, the configured
-       * continuity path may never escape the PCW context root.
-       */
-      const absolutePath = resolveConfiguredPath(
+      const result = await updateContinuity(
         contextRoot,
-        continuityPath
+        config,
+        {
+          requestedWorkstream: name,
+          content,
+          expectedSha256
+        }
       );
-      await assertExistingPathInsideBase(contextRoot, absolutePath);
 
-      const info = await stat(absolutePath);
-
-      if (!info.isFile()) {
-        throw new Error("Configured continuity path is not a file");
-      }
-
-      const currentContent = await readFile(absolutePath, "utf8");
-      const currentSha256 = sha256Text(currentContent);
-
-      /*
-       * Optimistic concurrency check.
-       *
-       * If another agent/session updated continuity after this caller
-       * read it, reject the write rather than losing newer information.
-       */
-      if (currentSha256 !== expectedSha256) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                workstream: result.workstream,
+                path: result.configuredPath,
+                absolutePath: result.absolutePath,
+                previousSha256: result.previousSha256,
+                newSha256: result.newSha256,
+                backupPath: result.backupPath,
+                updated: result.updated
+              },
+              null,
+              2
+            )
+          }
+        ]
+      };
+    } catch (error) {
+      if (error instanceof ContinuityWorkstreamNotFoundError) {
         return {
           isError: true,
           content: [
@@ -1406,10 +1339,60 @@ server.registerTool(
               type: "text",
               text: JSON.stringify(
                 {
-                  error: "Continuity has changed since it was read",
-                  workstream: realName,
-                  expectedSha256,
-                  currentSha256,
+                  error: error.message,
+                  availableWorkstreams: error.availableWorkstreams
+                },
+                null,
+                2
+              )
+            }
+          ]
+        };
+      }
+
+      if (error instanceof ContinuityNotConfiguredError) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ error: error.message }, null, 2)
+            }
+          ]
+        };
+      }
+
+      if (error instanceof ContinuityNotMarkdownError) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: error.message,
+                  path: error.configuredPath
+                },
+                null,
+                2
+              )
+            }
+          ]
+        };
+      }
+
+      if (error instanceof ContinuityStaleWriteError) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: error.message,
+                  workstream: error.workstream,
+                  expectedSha256: error.expectedSha256,
+                  currentSha256: error.currentSha256,
                   action:
                     "Call get_continuity again, reconcile the newer state, and retry."
                 },
@@ -1421,73 +1404,15 @@ server.registerTool(
         };
       }
 
-      /*
-       * Create durable history before replacing the current checkpoint.
-       */
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-");
+      const workstream =
+        error instanceof ContinuityUpdateError ? error.workstream : name;
+      const details =
+        error instanceof ContinuityUpdateError
+          ? error.details
+          : error instanceof Error
+            ? error.message
+            : String(error);
 
-      const historyDirectory = resolveConfiguredPath(
-        contextRoot,
-        join(".pcw", "history", realName)
-      );
-
-      await mkdir(historyDirectory, {
-        recursive: true
-      });
-      await assertExistingPathInsideBase(
-        contextRoot,
-        historyDirectory
-      );
-
-      const backupPath = ensureInsideBase(
-        historyDirectory,
-        join(
-          historyDirectory,
-          `${timestamp}-${currentSha256.slice(0, 12)}.md`
-        )
-      );
-
-      await copyFile(
-        absolutePath,
-        backupPath
-      );
-
-      /*
-       * Atomic replacement.
-       */
-      await writeFileAtomic(
-        absolutePath,
-        content,
-        {
-          encoding: "utf8"
-        }
-      );
-
-      const newSha256 = sha256Text(content);
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                workstream: realName,
-                path: continuityPath,
-                absolutePath,
-                previousSha256: currentSha256,
-                newSha256,
-                backupPath,
-                updated: true
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    } catch (error) {
       return {
         isError: true,
         content: [
@@ -1495,11 +1420,11 @@ server.registerTool(
             type: "text",
             text: JSON.stringify(
               {
-                error: `Could not update continuity for '${realName}'`,
-                details:
-                  error instanceof Error
-                    ? error.message
-                    : String(error)
+                error:
+                  "Could not update continuity for '" +
+                  workstream +
+                  "'",
+                details
               },
               null,
               2

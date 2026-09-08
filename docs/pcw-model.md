@@ -79,6 +79,8 @@ continuity/PAYMENTS.md
 
 Continuity should not become a full transcript. It should capture only what a future session needs to resume work: current objective, completed work, decisions, rejected approaches, tests, unresolved issues, relevant sources, and next actions.
 
+Each configured workstream has at most one canonical continuity document. PCW reads it as UTF-8 text and identifies its current version with a SHA-256 hash. An update must present the previously read hash; a stale hash is rejected without changing the document. Successful updates first preserve the replaced content under `.pcw/history/<WORKSTREAM>/` and then atomically replace the canonical file. PCW does not automatically merge conflicting updates.
+
 ## Selective Retrieval
 
 The full durable context may be large. PCW provides persistent external context plus selective rehydration; it does not claim to create an infinite model context window.
