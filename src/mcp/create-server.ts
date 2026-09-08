@@ -5,6 +5,7 @@ import { registerInventoryTools } from "./tools/inventory-tools.js";
 import { registerProjectTools } from "./tools/project-tools.js";
 import { registerSourceTools } from "./tools/source-tools.js";
 import { registerWorkstreamTools } from "./tools/workstream-tools.js";
+import { PCW_SOFTWARE_VERSION } from "../version.js";
 
 export type CreatePcwMcpServerOptions = {
   contextRoot: string;
@@ -15,7 +16,7 @@ export function createPcwMcpServer(
 ): McpServer {
   const server = new McpServer({
     name: "pcw-mcp",
-    version: "0.1.0"
+    version: PCW_SOFTWARE_VERSION
   });
 
   registerProjectTools(server, options.contextRoot);

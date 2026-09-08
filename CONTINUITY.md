@@ -932,3 +932,70 @@ Intentionally deferred:
 Recommended Block 11: establish an explicit public MCP contract and versioning baseline. Characterize remaining configuration-error behavior, decide and document package/server version normalization for v0.2, and define compatibility expectations without adding tools, transports, resources, prompts, or distribution infrastructure.
 
 The final commit hash is reported in the Block 10 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 11 Validation
+
+Block 11 scope:
+
+```text
+Public contract baseline and versioning.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `chore: establish PCW v0.2 version and contract baseline`.
+
+Software version strategy:
+
+- selected `0.2.0-dev.0`, a valid SemVer prerelease that clearly precedes beta/release and supports later `dev.N` increments;
+- `package.json` is the single runtime source of the software version;
+- `src/version.ts` loads and validates that package value;
+- `createPcwMcpServer` advertises the imported version, preventing a second manually maintained runtime literal;
+- automated tests compare package, runtime module, and negotiated MCP metadata.
+
+The MCP identity is now `pcw-mcp` / `0.2.0-dev.0`. No release tag was created. The frozen `v0.1.0-poc` tag remains unchanged.
+
+Public contract documents:
+
+- `docs/public-contract.md`: authoritative identity, runtime, public/internal boundary, errors, path exposure, continuity protocol, compatibility policy, and non-goals;
+- `docs/mcp-tools.md`: exact 13-tool baseline with inputs, limits/defaults, result fields, and notable errors;
+- `docs/pcw-yml.md`: current schema and a fully synthetic logical-versus-physical example.
+
+The current `pcw.yml.version` remains optional and accepts strings or numbers. It is a configuration-schema marker, not the software version. Requiring a canonical integer such as `version: 1` is deferred to an explicit schema migration.
+
+Configuration errors remain the established SDK-generated plain-text MCP error with `isError: true`. Read, parse, and validation messages identify the configured `pcw.yml`; validation includes at most three concise issue summaries. Tests confirm that raw YAML, raw Zod objects, and stack traces are not returned. Switching these errors to the JSON payload used by mapped domain errors would be a compatibility change and was not done.
+
+Contract recommendations:
+
+- keep current textual/structured errors for this development baseline, then add a small stable machine-readable code set before beta without removing existing fields;
+- keep `absolutePath` and `backupPath` for the local-only private beta, but review/redact them before remote transport or broad public release;
+- retain `hello` in this development baseline, but remove it before first beta with explicit owner approval because MCP initialization already provides a health check;
+- make `PCW_CONTEXT_ROOT` mandatory before private beta and remove the machine-specific fallback through a separately documented runtime change.
+
+Package metadata now provides a useful description, `dist/server.js` main entry, and `engines.node: >=22.9.0`. This minimum satisfies the installed production dependencies' declared engine ranges; tests currently run on Node 24.3.0, so Node 22.9.0 compatibility is a high-confidence dependency-based recommendation, not yet a CI-verified claim.
+
+The package declares `ISC`, but no standalone LICENSE file exists. The owner must confirm the intended license and add its text before external distribution. Author/repository metadata and package file allowlisting also remain incomplete.
+
+Validation results:
+
+```text
+npm run build: passed
+previous tests: 121 passed, 0 failed
+new contract/version tests: 5 passed, 0 failed
+total: 126 passed, 0 failed
+```
+
+New coverage verifies valid SemVer, package/runtime/MCP version equality, server name, safe YAML syntax errors, bounded structural-validation errors, and the current optional string/number `pcw.yml.version` variants. The existing registration test continues to protect the exact 13-tool set.
+
+Intentionally deferred:
+
+- approval and removal/retention decision for `hello`;
+- stable machine-readable error codes;
+- removal of the legacy fallback root;
+- absolute-path redaction or contract migration;
+- canonical required `pcw.yml` schema version;
+- license confirmation and LICENSE file;
+- Node 22 CI verification;
+- package file allowlist, author/repository metadata, packaging, and publication.
+
+Recommended Block 12: private-beta runtime and distribution readiness. Resolve the owner decisions for `hello` and licensing first; then remove the machine-specific fallback in favor of a required explicit context root, add the agreed small error-code set, verify the declared Node 22 baseline in CI or a clean environment, and prepare package contents without publishing or creating a release tag until final approval.
+
+The final commit hash is reported in the Block 11 completion response and can be recovered with `git log -1 --oneline`.

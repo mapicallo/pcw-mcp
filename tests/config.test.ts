@@ -133,3 +133,17 @@ test("configuration reload reflects file changes without caching", async () => {
     }
   );
 });
+
+test("pcw.yml version remains optional and accepts strings or numbers", async () => {
+  for (const [yaml, expected] of [
+    ["project:\n  id: no-version\n", undefined],
+    ["version: 1\n", 1],
+    ["version: experimental\n", "experimental"]
+  ] as const) {
+    await withConfig(yaml, async (contextRoot) => {
+      const loaded = await loadPcwConfig(contextRoot);
+
+      assert.equal(loaded.config.version, expected);
+    });
+  }
+});

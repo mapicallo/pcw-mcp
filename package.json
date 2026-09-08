@@ -1,12 +1,12 @@
 {
   "name": "pcw-mcp",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.2.0-dev.0",
+  "description": "Local-first MCP server for Persistent Context Workstreams",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts tests/mcp-registration.test.ts tests/server-composition.test.ts"
+    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts tests/mcp-registration.test.ts tests/server-composition.test.ts tests/public-contract.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -26,5 +26,8 @@
     "@types/node": "^26.4.1",
     "@types/write-file-atomic": "^4.0.3",
     "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=22.9.0"
   }
 }
