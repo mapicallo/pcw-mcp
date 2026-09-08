@@ -320,8 +320,10 @@ test("update_continuity rejects stale writes without overwriting newer state", a
       });
       const stale = await callTool<{
         error: string;
+        workstream: string;
         expectedSha256: string;
         currentSha256: string;
+        action: string;
       }>(client, "update_continuity", {
         name: "BACKEND",
         content: "# BACKEND Continuity\n\nStale Session A content.\n",
@@ -333,8 +335,13 @@ test("update_continuity rejects stale writes without overwriting newer state", a
 
       assert.equal(stale.isError, true);
       assert.equal(stale.data.error, "Continuity has changed since it was read");
+      assert.equal(stale.data.workstream, "BACKEND");
       assert.equal(stale.data.expectedSha256, sessionA.data.sha256);
       assert.notEqual(stale.data.currentSha256, sessionA.data.sha256);
+      assert.equal(
+        stale.data.action,
+        "Call get_continuity again, reconcile the newer state, and retry."
+      );
       assert.equal(current.data.continuity, sessionBContent);
       assert.equal(current.data.sha256, stale.data.currentSha256);
     });

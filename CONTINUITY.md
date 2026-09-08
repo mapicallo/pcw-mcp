@@ -124,7 +124,7 @@ Compiled output, when generated:
 dist/server.js
 ```
 
-The v0.1 behavior is now covered by automated characterization tests. Typed configuration, filesystem security, source readers, inventory, and continuity workflows have been extracted into focused modules; `src/server.ts` still owns MCP registration, input schemas, response formatting, and bootstrap.
+The v0.1 behavior is now covered by automated characterization tests. Typed configuration, filesystem security, source readers, inventory, continuity, and MCP response translation have focused module boundaries; `src/server.ts` still owns explicit tool registration, input schemas, logical-scope orchestration, and bootstrap.
 
 The server uses stdio:
 
@@ -258,16 +258,14 @@ Do not remove backup, SHA, stale-write rejection, or atomic write behavior.
 
 ## Known Technical Debt
 
-After Blocks 3 through 7, `src/server.ts` still mixes:
+After Blocks 3 through 8, `src/server.ts` still owns:
 
 - MCP server setup and bootstrap
-- tool registration
+- explicit tool registration
 - MCP input schemas
-- logical scope orchestration
-- MCP JSON response formatting
-- tool-facing error translation
+- repeated logical shared/workstream scope orchestration
 
-The main remaining repetition is MCP JSON response construction and tool-facing error translation. Configuration, path safety, source readers, inventory, and continuity now have typed service boundaries.
+JSON/text response construction and typed continuity, inventory, and source/path error translation now live under `src/mcp`. Configuration, path safety, source readers, inventory, and continuity remain independent service boundaries.
 
 Likely module boundaries for v0.2:
 
@@ -754,3 +752,72 @@ Known limitations:
 Recommended Block 8: extract MCP success/error response construction and typed service-error translation into a focused boundary while preserving all tool names, schemas, response fields, error envelopes, and all 97 tests. Do not combine that work with broad tool-registration decomposition or server bootstrap changes.
 
 The final commit hash is reported in the Block 7 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 8 Validation
+
+Block 8 scope:
+
+```text
+MCP response and error translation layer.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `refactor: centralize MCP responses and error mapping`.
+
+New modules:
+
+- `src/mcp/responses.ts`: SDK-typed plain-text, pretty JSON, and JSON error response helpers;
+- `src/mcp/error-mapper.ts`: explicit tool-context translation for continuity, inventory, and source/path errors.
+
+Response APIs:
+
+- `textResponse(text)` preserves plain text exactly;
+- `jsonResponse(value)` preserves `JSON.stringify(value, null, 2)` and the single text-content envelope;
+- `jsonErrorResponse(value)` adds the existing `isError: true` marker without changing payload fields.
+
+Error translation:
+
+- continuity read mapping handles unknown workstreams, missing continuity, read failures, and paths;
+- continuity update mapping handles unknown workstreams, missing continuity, non-Markdown targets, stale SHA details/action, and update failures;
+- inventory mapping preserves the distinct not-a-file and generic read payloads;
+- source mapping preserves tool-specific public messages and operational `Error.message` details, including `PcwPathError` diagnostics;
+- non-Error thrown values become `Unexpected PCW error` instead of being serialized;
+- stack traces and arbitrary thrown objects are never included.
+
+The mapper depends on services and MCP SDK types; domain/config/filesystem/source/inventory/continuity modules do not depend on MCP. Tool registrations and Zod input schemas remain explicit and unchanged in `src/server.ts`; bootstrap and transport were not moved.
+
+Characterization added before refactoring:
+
+- unknown shared context;
+- missing source;
+- unsupported text extension;
+- missing inventory configuration;
+- workstream without continuity;
+- non-Markdown continuity target;
+- unsafe history workstream.
+
+Focused MCP unit coverage includes success JSON formatting, exact plain text, JSON error envelopes, known typed errors, complete stale-write fields, safe non-Error fallback, stack omission, unusual Error messages, and arbitrary-object sanitization. The existing stale black-box test now also asserts canonical workstream and retry action.
+
+Validation results:
+
+```text
+npm run build: passed
+previous tests: 97 passed, 0 failed
+new MCP characterization tests: 7 passed, 0 failed
+new response/error unit tests: 9 passed, 0 failed
+total: 113 passed, 0 failed
+```
+
+`src/server.ts` now uses response helpers throughout and contains no manual `content`, `isError`, or `JSON.stringify` response boilerplate. It was reduced from 1,449 lines to 850 lines without changing tool names, schemas, success fields, error payload fields, service behavior, caching, or filesystem operations.
+
+Intentionally deferred:
+
+- decomposition of explicit tool registrations into domain-focused MCP modules;
+- shared logical-scope orchestration used by source tools;
+- server bootstrap and transport extraction;
+- explicit public mapping/versioning for `PcwConfigError`, whose uncaught tool behavior still follows the installed MCP SDK;
+- machine-readable public error codes;
+- logging infrastructure and new transports.
+
+Recommended Block 9: decompose explicit MCP tool registrations into small domain-focused registration modules and leave `server.ts` as composition/bootstrap. Preserve every tool name, Zod input schema, response/error contract, and all 113 tests. Keep shared-scope deduplication conservative and do not add tools, resources, prompts, HTTP transport, or dependency-injection infrastructure.
+
+The final commit hash is reported in the Block 8 completion response and can be recovered with `git log -1 --oneline`.

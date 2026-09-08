@@ -16,21 +16,25 @@ import {
   resolveConfiguredPath
 } from "./filesystem/paths.js";
 import {
-  ContinuityNotConfiguredError,
-  ContinuityNotMarkdownError,
-  ContinuityReadError,
-  ContinuityStaleWriteError,
-  ContinuityUpdateError,
-  ContinuityWorkstreamNotFoundError,
   getContinuitySnapshot,
   updateContinuity
 } from "./continuity/continuity-service.js";
 import {
-  InventoryNotFileError,
   loadInventoryDocument,
   resolveInventoryPath,
   searchInventory
 } from "./inventory/inventory-service.js";
+import {
+  continuityReadErrorResponse,
+  continuityUpdateErrorResponse,
+  inventoryReadErrorResponse,
+  sourceReadErrorResponse
+} from "./mcp/error-mapper.js";
+import {
+  jsonErrorResponse,
+  jsonResponse,
+  textResponse
+} from "./mcp/responses.js";
 import {
   isDocxSourcePath,
   readDocxFile
@@ -108,14 +112,8 @@ server.registerTool(
       name: z.string().describe("Name of the person to greet")
     })
   },
-  async ({ name }) => ({
-    content: [
-      {
-        type: "text",
-        text: `Hello ${name}. PCW MCP is running correctly.`
-      }
-    ]
-  })
+  async ({ name }) =>
+    textResponse(`Hello ${name}. PCW MCP is running correctly.`)
 );
 
 
@@ -140,14 +138,7 @@ server.registerTool(
       inventory: config?.inventory?.path ?? null
     };
 
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result, null, 2)
-        }
-      ]
-    };
+    return jsonResponse(result);
   }
 );
 
@@ -172,14 +163,7 @@ server.registerTool(
       })
     );
 
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(workstreams, null, 2)
-        }
-      ]
-    };
+    return jsonResponse(workstreams);
   }
 );
 
@@ -208,22 +192,10 @@ server.registerTool(
     if (!realName) {
       const available = Object.keys(workstreamsConfig);
 
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `Workstream '${name}' is not defined`,
-                availableWorkstreams: available
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: `Workstream '${name}' is not defined`,
+        availableWorkstreams: available
+      });
     }
 
     const workstream = resolvedWorkstream?.config;
@@ -248,14 +220,7 @@ server.registerTool(
       }
     };
 
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result, null, 2)
-        }
-      ]
-    };
+    return jsonResponse(result);
   }
 );
 
@@ -282,82 +247,15 @@ server.registerTool(
         name
       );
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                workstream: snapshot.workstream,
-                path: snapshot.configuredPath,
-                sha256: snapshot.sha256,
-                absolutePath: snapshot.absolutePath,
-                continuity: snapshot.content
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonResponse({
+        workstream: snapshot.workstream,
+        path: snapshot.configuredPath,
+        sha256: snapshot.sha256,
+        absolutePath: snapshot.absolutePath,
+        continuity: snapshot.content
+      });
     } catch (error) {
-      if (error instanceof ContinuityWorkstreamNotFoundError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: error.message,
-                  availableWorkstreams: error.availableWorkstreams
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
-      }
-
-      if (error instanceof ContinuityNotConfiguredError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ error: error.message }, null, 2)
-            }
-          ]
-        };
-      }
-
-      const workstream =
-        error instanceof ContinuityReadError ? error.workstream : name;
-      const path =
-        error instanceof ContinuityReadError
-          ? error.absolutePath ?? error.configuredPath
-          : null;
-
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error:
-                  "Could not read continuity document for '" +
-                  workstream +
-                  "'",
-                path
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return continuityReadErrorResponse(error, name);
     }
   }
 );
@@ -389,14 +287,7 @@ server.registerTool(
       )
     );
 
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(sections, null, 2)
-        }
-      ]
-    };
+    return jsonResponse(sections);
   }
 );
 
@@ -433,22 +324,10 @@ server.registerTool(
       logicalName = resolvedSharedContext?.name ?? null;
 
       if (!logicalName) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: `Shared context '${name}' is not defined`,
-                  available: Object.keys(sharedConfig)
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
+        return jsonErrorResponse({
+          error: `Shared context '${name}' is not defined`,
+          available: Object.keys(sharedConfig)
+        });
       }
 
       configuredPath = resolvedSharedContext?.config.path ?? null;
@@ -461,62 +340,26 @@ server.registerTool(
       logicalName = resolvedWorkstream?.name ?? null;
 
       if (!logicalName) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: `Workstream '${name}' is not defined`,
-                  available: Object.keys(workstreamsConfig)
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
+        return jsonErrorResponse({
+          error: `Workstream '${name}' is not defined`,
+          available: Object.keys(workstreamsConfig)
+        });
       }
 
       configuredPath =
         resolvedWorkstream?.config.context?.path ?? null;
 
       if (!configuredPath) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: `Workstream '${logicalName}' has no specialized context configured`
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
+        return jsonErrorResponse({
+          error: `Workstream '${logicalName}' has no specialized context configured`
+        });
       }
     }
 
     if (!configuredPath) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `No context path configured for '${name}'`
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: `No context path configured for '${name}'`
+      });
     }
 
     const absolutePath = resolveConfiguredPath(contextRoot, configuredPath);
@@ -524,42 +367,19 @@ server.registerTool(
     try {
       const listing = await discoverSources(contextRoot, configuredPath);
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                scope,
-                name: logicalName,
-                path: configuredPath,
-                absolutePath: listing.absolutePath,
-                sourceCount: listing.sources.length,
-                sources: listing.sources
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonResponse({
+        scope,
+        name: logicalName,
+        path: configuredPath,
+        absolutePath: listing.absolutePath,
+        sourceCount: listing.sources.length,
+        sources: listing.sources
+      });
     } catch {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `Could not list sources for '${name}'`,
-                path: absolutePath
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: `Could not list sources for '${name}'`,
+        path: absolutePath
+      });
     }
   }
 );
@@ -577,21 +397,9 @@ server.registerTool(
     const inventoryPath = config?.inventory?.path ?? null;
 
     if (!inventoryPath) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: "No inventory document is configured in pcw.yml"
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: "No inventory document is configured in pcw.yml"
+      });
     }
 
     const absolutePath = resolveInventoryPath(contextRoot, inventoryPath);
@@ -602,60 +410,15 @@ server.registerTool(
         inventoryPath
       );
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                path: document.configuredPath,
-                absolutePath: document.absolutePath,
-                sizeBytes: document.sizeBytes,
-                modifiedAt: document.modifiedAt,
-                inventory: document.content
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonResponse({
+        path: document.configuredPath,
+        absolutePath: document.absolutePath,
+        sizeBytes: document.sizeBytes,
+        modifiedAt: document.modifiedAt,
+        inventory: document.content
+      });
     } catch (error) {
-      if (error instanceof InventoryNotFileError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: "Configured inventory path is not a file",
-                  path: absolutePath
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
-      }
-
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: "Could not read the configured inventory document",
-                path: absolutePath
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return inventoryReadErrorResponse(error, absolutePath);
     }
   }
 );
@@ -687,21 +450,9 @@ server.registerTool(
     const inventoryPath = config?.inventory?.path ?? null;
 
     if (!inventoryPath) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: "No inventory document is configured in pcw.yml"
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: "No inventory document is configured in pcw.yml"
+      });
     }
 
     const absolutePath = resolveInventoryPath(contextRoot, inventoryPath);
@@ -714,40 +465,17 @@ server.registerTool(
         limit
       );
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                query,
-                inventory: result.document.configuredPath,
-                matchCount: result.matches.length,
-                matches: result.matches
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonResponse({
+        query,
+        inventory: result.document.configuredPath,
+        matchCount: result.matches.length,
+        matches: result.matches
+      });
     } catch {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: "Could not search the configured inventory",
-                path: absolutePath
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: "Could not search the configured inventory",
+        path: absolutePath
+      });
     }
   }
 );
@@ -785,22 +513,10 @@ server.registerTool(
       logicalName = resolvedSharedContext?.name ?? null;
 
       if (!logicalName) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: `Shared context '${name}' is not defined`,
-                  available: Object.keys(sharedConfig)
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
+        return jsonErrorResponse({
+          error: `Shared context '${name}' is not defined`,
+          available: Object.keys(sharedConfig)
+        });
       }
 
       configuredPath = resolvedSharedContext?.config.path ?? null;
@@ -813,22 +529,10 @@ server.registerTool(
       logicalName = resolvedWorkstream?.name ?? null;
 
       if (!logicalName) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: `Workstream '${name}' is not defined`,
-                  available: Object.keys(workstreamsConfig)
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
+        return jsonErrorResponse({
+          error: `Workstream '${name}' is not defined`,
+          available: Object.keys(workstreamsConfig)
+        });
       }
 
       configuredPath =
@@ -836,41 +540,17 @@ server.registerTool(
     }
 
     if (!configuredPath) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `No readable context path configured for '${name}'`
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: `No readable context path configured for '${name}'`
+      });
     }
 
     if (!isTextSourcePath(source)) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error:
-                  "This tool only supports Markdown (.md) and plain-text (.txt) sources",
-                source
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error:
+          "This tool only supports Markdown (.md) and plain-text (.txt) sources",
+        source
+      });
     }
 
     try {
@@ -881,44 +561,20 @@ server.registerTool(
       );
       const text = await readTextFile(resolvedSource.absolutePath);
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                scope,
-                name: logicalName,
-                source,
-                absolutePath: resolvedSource.absolutePath,
-                sizeBytes: resolvedSource.sizeBytes,
-                modifiedAt: resolvedSource.modifiedAt,
-                text
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonResponse({
+        scope,
+        name: logicalName,
+        source,
+        absolutePath: resolvedSource.absolutePath,
+        sizeBytes: resolvedSource.sizeBytes,
+        modifiedAt: resolvedSource.modifiedAt,
+        text
+      });
     } catch (error) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `Could not read source '${source}'`,
-                details:
-                  error instanceof Error ? error.message : String(error)
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return sourceReadErrorResponse(
+        `Could not read source '${source}'`,
+        error
+      );
     }
   }
 );
@@ -957,22 +613,10 @@ server.registerTool(
       logicalName = resolvedSharedContext?.name ?? null;
 
       if (!logicalName) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: `Shared context '${name}' is not defined`,
-                  available: Object.keys(sharedConfig)
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
+        return jsonErrorResponse({
+          error: `Shared context '${name}' is not defined`,
+          available: Object.keys(sharedConfig)
+        });
       }
 
       configuredPath = resolvedSharedContext?.config.path ?? null;
@@ -985,22 +629,10 @@ server.registerTool(
       logicalName = resolvedWorkstream?.name ?? null;
 
       if (!logicalName) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: `Workstream '${name}' is not defined`,
-                  available: Object.keys(workstreamsConfig)
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
+        return jsonErrorResponse({
+          error: `Workstream '${name}' is not defined`,
+          available: Object.keys(workstreamsConfig)
+        });
       }
 
       configuredPath =
@@ -1008,40 +640,16 @@ server.registerTool(
     }
 
     if (!configuredPath) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `No context path configured for '${name}'`
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: `No context path configured for '${name}'`
+      });
     }
 
     if (!isDocxSourcePath(source)) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: "This tool only supports DOCX files",
-                source
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: "This tool only supports DOCX files",
+        source
+      });
     }
 
     try {
@@ -1052,45 +660,21 @@ server.registerTool(
       );
       const result = await readDocxFile(resolvedSource.absolutePath);
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                scope,
-                name: logicalName,
-                source,
-                absolutePath: resolvedSource.absolutePath,
-                sizeBytes: resolvedSource.sizeBytes,
-                modifiedAt: resolvedSource.modifiedAt,
-                text: result.text,
-                warnings: result.warnings
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonResponse({
+        scope,
+        name: logicalName,
+        source,
+        absolutePath: resolvedSource.absolutePath,
+        sizeBytes: resolvedSource.sizeBytes,
+        modifiedAt: resolvedSource.modifiedAt,
+        text: result.text,
+        warnings: result.warnings
+      });
     } catch (error) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `Could not read DOCX source '${source}'`,
-                details:
-                  error instanceof Error ? error.message : String(error)
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return sourceReadErrorResponse(
+        `Could not read DOCX source '${source}'`,
+        error
+      );
     }
   }
 );
@@ -1129,22 +713,10 @@ server.registerTool(
       logicalName = resolvedSharedContext?.name ?? null;
 
       if (!logicalName) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: `Shared context '${name}' is not defined`,
-                  available: Object.keys(sharedConfig)
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
+        return jsonErrorResponse({
+          error: `Shared context '${name}' is not defined`,
+          available: Object.keys(sharedConfig)
+        });
       }
 
       configuredPath = resolvedSharedContext?.config.path ?? null;
@@ -1157,22 +729,10 @@ server.registerTool(
       logicalName = resolvedWorkstream?.name ?? null;
 
       if (!logicalName) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: `Workstream '${name}' is not defined`,
-                  available: Object.keys(workstreamsConfig)
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
+        return jsonErrorResponse({
+          error: `Workstream '${name}' is not defined`,
+          available: Object.keys(workstreamsConfig)
+        });
       }
 
       configuredPath =
@@ -1180,40 +740,16 @@ server.registerTool(
     }
 
     if (!configuredPath) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `No context path configured for '${name}'`
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: `No context path configured for '${name}'`
+      });
     }
 
     if (!isPdfSourcePath(source)) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: "This tool only supports PDF files",
-                source
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonErrorResponse({
+        error: "This tool only supports PDF files",
+        source
+      });
     }
 
     try {
@@ -1224,44 +760,20 @@ server.registerTool(
       );
       const text = await readPdfFile(resolvedSource.absolutePath);
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                scope,
-                name: logicalName,
-                source,
-                absolutePath: resolvedSource.absolutePath,
-                sizeBytes: resolvedSource.sizeBytes,
-                modifiedAt: resolvedSource.modifiedAt,
-                text
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonResponse({
+        scope,
+        name: logicalName,
+        source,
+        absolutePath: resolvedSource.absolutePath,
+        sizeBytes: resolvedSource.sizeBytes,
+        modifiedAt: resolvedSource.modifiedAt,
+        text
+      });
     } catch (error) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error: `Could not read PDF source '${source}'`,
-                details:
-                  error instanceof Error ? error.message : String(error)
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return sourceReadErrorResponse(
+        `Could not read PDF source '${source}'`,
+        error
+      );
     }
   }
 );
@@ -1310,128 +822,17 @@ server.registerTool(
         }
       );
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                workstream: result.workstream,
-                path: result.configuredPath,
-                absolutePath: result.absolutePath,
-                previousSha256: result.previousSha256,
-                newSha256: result.newSha256,
-                backupPath: result.backupPath,
-                updated: result.updated
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return jsonResponse({
+        workstream: result.workstream,
+        path: result.configuredPath,
+        absolutePath: result.absolutePath,
+        previousSha256: result.previousSha256,
+        newSha256: result.newSha256,
+        backupPath: result.backupPath,
+        updated: result.updated
+      });
     } catch (error) {
-      if (error instanceof ContinuityWorkstreamNotFoundError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: error.message,
-                  availableWorkstreams: error.availableWorkstreams
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
-      }
-
-      if (error instanceof ContinuityNotConfiguredError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ error: error.message }, null, 2)
-            }
-          ]
-        };
-      }
-
-      if (error instanceof ContinuityNotMarkdownError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: error.message,
-                  path: error.configuredPath
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
-      }
-
-      if (error instanceof ContinuityStaleWriteError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  error: error.message,
-                  workstream: error.workstream,
-                  expectedSha256: error.expectedSha256,
-                  currentSha256: error.currentSha256,
-                  action:
-                    "Call get_continuity again, reconcile the newer state, and retry."
-                },
-                null,
-                2
-              )
-            }
-          ]
-        };
-      }
-
-      const workstream =
-        error instanceof ContinuityUpdateError ? error.workstream : name;
-      const details =
-        error instanceof ContinuityUpdateError
-          ? error.details
-          : error instanceof Error
-            ? error.message
-            : String(error);
-
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                error:
-                  "Could not update continuity for '" +
-                  workstream +
-                  "'",
-                details
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
+      return continuityUpdateErrorResponse(error, name);
     }
   }
 );

@@ -19,8 +19,12 @@ The v0.2 foundation is not a complete sandbox or production security boundary. T
 - History directories and continuity targets are checked against the context root.
 - Canonical workstream names containing path separators, traversal components, NUL characters, or no visible characters are rejected before being used as history directory names.
 - History directories are created in checked stages, and backup creation must succeed before continuity replacement begins.
+- Expected continuity, inventory, and path errors are translated into their existing diagnostic payloads at the MCP boundary.
+- Unexpected non-Error thrown values are replaced with a generic message, and stack traces are never returned in MCP tool responses.
 
 PCW-MCP must not be treated as a general filesystem browser. Configuration and tool inputs do not grant access outside the selected context root.
+
+Domain services do not depend on MCP response types. Transport formatting and error translation are confined to `src/mcp`, which reduces the risk of domain failures accidentally serializing arbitrary objects. This separation is not a complete security boundary and does not make PCW production-hardened.
 
 ## Path Safety
 

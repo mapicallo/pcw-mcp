@@ -81,6 +81,12 @@ Continuity should not become a full transcript. It should capture only what a fu
 
 Each configured workstream has at most one canonical continuity document. PCW reads it as UTF-8 text and identifies its current version with a SHA-256 hash. An update must present the previously read hash; a stale hash is rejected without changing the document. Successful updates first preserve the replaced content under `.pcw/history/<WORKSTREAM>/` and then atomically replace the canonical file. PCW does not automatically merge conflicting updates.
 
+## MCP Adapter Boundary
+
+PCW configuration and domain services return typed results or throw typed operational errors without constructing MCP responses. The MCP adapter translates those values into the established text-content envelopes, while `src/server.ts` retains explicit tool registration and input schemas.
+
+This keeps the durable PCW model independent from its current transport representation: MCP is an interface to PCW, not PCW itself.
+
 ## Selective Retrieval
 
 The full durable context may be large. PCW provides persistent external context plus selective rehydration; it does not claim to create an infinite model context window.
