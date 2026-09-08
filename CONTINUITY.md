@@ -634,3 +634,77 @@ Intentionally deferred:
 Recommended Block 6: extract inventory retrieval and section search into a typed inventory service behind the existing config/filesystem boundaries. Preserve the current Markdown section matching, case-insensitive search behavior, MCP response contract, and all 58 tests. Do not combine continuity workflow or global MCP response refactoring into that block.
 
 The final commit hash is reported in the Block 5 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 6 Validation
+
+Block 6 scope:
+
+```text
+Inventory service and selective search extraction.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `refactor: extract PCW inventory service`.
+
+New modules:
+
+- `src/inventory/inventory-types.ts`: typed inventory document, section, and search-result contracts;
+- `src/inventory/inventory-service.ts`: safe uncached loading, section extraction, substring matching, result limiting, and `InventoryNotFileError`.
+
+Inventory loading:
+
+- `inventory.path` is resolved through the Block 4 filesystem boundary;
+- lexical root containment and realpath containment remain enforced;
+- an existing target must be a file;
+- configured traversal and symlink/Windows-junction escapes are rejected;
+- content is read as UTF-8 on every call, so edits are visible without restarting MCP;
+- no cache, preload, source crawl, or additional inventory format was introduced.
+
+Section parsing preserves the v0.1 behavior exactly:
+
+- only headings matching `^###\s+(.+)$` start a section;
+- heading text is trimmed for the section title;
+- the original `###` heading line remains part of searchable section content;
+- non-empty content before the first section uses the title `Inventory introduction`;
+- empty headed sections remain as their heading line;
+- completely empty input produces no sections;
+- heading-free non-empty input produces one introduction section;
+- document order is preserved.
+
+Search semantics:
+
+- query matching is a case-insensitive substring over complete section content;
+- results preserve document order and are not ranked;
+- each section appears at most once even if the term occurs repeatedly;
+- no match returns an empty array;
+- the service default is 8 results;
+- the existing MCP schema continues to accept explicit limits from 1 to 20;
+- a whitespace-only MCP query still normalizes to an empty substring and matches sections, preserving current behavior;
+- searches operate only on inventory content and never read referenced source files.
+
+The `get_inventory` and `search_inventory` tool names, input schemas, response fields, configured paths, metadata, ordering, and error envelopes remain compatible. Their existing MCP characterization assertions now also cover inventory metadata and complete search match content.
+
+Validation results:
+
+```text
+npm run build: passed
+previous tests: 58 passed, 0 failed
+new inventory tests: 21 passed, 0 failed
+total: 79 passed, 0 failed
+```
+
+No production or development dependency was added. `src/server.ts` still registers and formats the two MCP tools but no longer reads inventory files, parses sections, normalizes queries, filters matches, or applies result limits.
+
+Intentionally deferred:
+
+- fuzzy, ranked, semantic, vector, embedding, and RAG retrieval;
+- multiple inventory files or non-text inventory formats;
+- possible rejection of whitespace-only queries, which would change the current contract;
+- global MCP response/error refactoring;
+- lower-level TOCTOU-resistant file handles;
+- continuity workflow extraction;
+- shared logical-scope/tool orchestration deduplication;
+- server bootstrap changes.
+
+Recommended Block 7: extract continuity reading and updating into a typed continuity service behind the config and filesystem boundaries. Preserve SHA-256 optimistic concurrency, stale-write rejection, pre-update history backup, atomic replacement, Markdown-path enforcement, MCP contracts, and all 79 tests. Do not combine global MCP response formatting or server bootstrap refactoring into that block.
+
+The final commit hash is reported in the Block 6 completion response and can be recovered with `git log -1 --oneline`.

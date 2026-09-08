@@ -30,6 +30,12 @@ import {
   resolveConfiguredPath
 } from "./filesystem/paths.js";
 import {
+  InventoryNotFileError,
+  loadInventoryDocument,
+  resolveInventoryPath,
+  searchInventory
+} from "./inventory/inventory-service.js";
+import {
   isDocxSourcePath,
   readDocxFile
 } from "./readers/docx-reader.js";
@@ -97,45 +103,6 @@ async function getPathStatus(path: string | null) {
   }
 }
 
-
-function extractInventorySections(markdown: string) {
-  const lines = markdown.split(/\r?\n/);
-
-  const sections: Array<{
-    title: string;
-    content: string;
-  }> = [];
-
-  let currentTitle = "Inventory introduction";
-  let currentLines: string[] = [];
-
-  for (const line of lines) {
-    const heading = line.match(/^###\s+(.+)$/);
-
-    if (heading) {
-      if (currentLines.length > 0) {
-        sections.push({
-          title: currentTitle,
-          content: currentLines.join("\n").trim()
-        });
-      }
-
-      currentTitle = heading[1].trim();
-      currentLines = [line];
-    } else {
-      currentLines.push(line);
-    }
-  }
-
-  if (currentLines.length > 0) {
-    sections.push({
-      title: currentTitle,
-      content: currentLines.join("\n").trim()
-    });
-  }
-
-  return sections.filter((section) => section.content.length > 0);
-}
 
 server.registerTool(
   "hello",
@@ -635,13 +602,34 @@ server.registerTool(
       };
     }
 
-    const absolutePath = resolveConfiguredPath(contextRoot, inventoryPath);
+    const absolutePath = resolveInventoryPath(contextRoot, inventoryPath);
 
     try {
-      await assertExistingPathInsideBase(contextRoot, absolutePath);
-      const info = await stat(absolutePath);
+      const document = await loadInventoryDocument(
+        contextRoot,
+        inventoryPath
+      );
 
-      if (!info.isFile()) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                path: document.configuredPath,
+                absolutePath: document.absolutePath,
+                sizeBytes: document.sizeBytes,
+                modifiedAt: document.modifiedAt,
+                inventory: document.content
+              },
+              null,
+              2
+            )
+          }
+        ]
+      };
+    } catch (error) {
+      if (error instanceof InventoryNotFileError) {
         return {
           isError: true,
           content: [
@@ -660,27 +648,6 @@ server.registerTool(
         };
       }
 
-      const inventory = await readFile(absolutePath, "utf8");
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                path: inventoryPath,
-                absolutePath,
-                sizeBytes: info.size,
-                modifiedAt: info.mtime.toISOString(),
-                inventory
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    } catch {
       return {
         isError: true,
         content: [
@@ -745,26 +712,15 @@ server.registerTool(
       };
     }
 
-    const absolutePath = resolveConfiguredPath(contextRoot, inventoryPath);
+    const absolutePath = resolveInventoryPath(contextRoot, inventoryPath);
 
     try {
-      await assertExistingPathInsideBase(contextRoot, absolutePath);
-      const inventory = await readFile(absolutePath, "utf8");
-
-      const sections = extractInventorySections(inventory);
-
-      const normalizedQuery = query.trim().toLowerCase();
-      const maxResults = limit ?? 8;
-
-      const matches = sections
-        .filter((section) =>
-          section.content.toLowerCase().includes(normalizedQuery)
-        )
-        .slice(0, maxResults)
-        .map((section) => ({
-          title: section.title,
-          content: section.content
-        }));
+      const result = await searchInventory(
+        contextRoot,
+        inventoryPath,
+        query,
+        limit
+      );
 
       return {
         content: [
@@ -773,9 +729,9 @@ server.registerTool(
             text: JSON.stringify(
               {
                 query,
-                inventory: inventoryPath,
-                matchCount: matches.length,
-                matches
+                inventory: result.document.configuredPath,
+                matchCount: result.matches.length,
+                matches: result.matches
               },
               null,
               2

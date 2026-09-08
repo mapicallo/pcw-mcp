@@ -175,12 +175,21 @@ test("list_sources discovers metadata without loading source content", async () 
 
 test("get_inventory returns the complete synthetic inventory", async () => {
   await withServer(fixtureRoot, async (client) => {
-    const response = await callTool<{ path: string; inventory: string }>(
-      client,
-      "get_inventory"
-    );
+    const response = await callTool<{
+      path: string;
+      absolutePath: string;
+      sizeBytes: number;
+      modifiedAt: string;
+      inventory: string;
+    }>(client, "get_inventory");
 
     assert.equal(response.data.path, "catalog/inventory.md");
+    assert.match(response.data.absolutePath, /catalog[\\/]inventory\.md$/);
+    assert.ok(response.data.sizeBytes > 0);
+    assert.equal(
+      new Date(response.data.modifiedAt).toISOString(),
+      response.data.modifiedAt
+    );
     assert.match(response.data.inventory, /Sample Context Inventory/);
     assert.match(response.data.inventory, /OPERATIONS/);
   });
@@ -195,8 +204,10 @@ test("search_inventory matches sections case-insensitively", async () => {
     }>(client, "search_inventory", { query: "QUEUE TOPOLOGY" });
 
     assert.equal(response.data.query, "QUEUE TOPOLOGY");
+    assert.equal(response.data.inventory, "catalog/inventory.md");
     assert.equal(response.data.matchCount, 1);
     assert.equal(response.data.matches[0].title, "Backend service notes");
+    assert.match(response.data.matches[0].content, /queue topology/);
   });
 });
 

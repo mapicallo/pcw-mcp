@@ -81,4 +81,16 @@ Continuity should not become a full transcript. It should capture only what a fu
 
 ## Selective Retrieval
 
-The full durable context may be large. PCW should help an agent discover available sources, search the inventory, and read only selected relevant files instead of loading everything into the active model context.
+The full durable context may be large. PCW provides persistent external context plus selective rehydration; it does not claim to create an infinite model context window.
+
+A normal retrieval flow is:
+
+1. understand the current workstream and task;
+2. consult its continuity checkpoint;
+3. search the inventory;
+4. identify candidate logical sections and physical sources;
+5. read only the sources relevant to the task.
+
+The inventory is a semantic map of the source corpus, not the corpus itself. Searching it does not crawl or load the referenced source documents.
+
+The current search strategy splits the Markdown inventory at level-three (`###`) headings and applies case-insensitive substring matching to each complete section. Results preserve inventory document order and are limited to 8 by default; the MCP input accepts explicit limits from 1 through 20. There is no relevance ranking, fuzzy matching, embedding model, vector database, or RAG pipeline. A richer strategy may later replace or augment substring search behind the inventory service without changing MCP tool orchestration.

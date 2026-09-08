@@ -60,9 +60,10 @@ The tests start the compiled MCP stdio server through the official MCP client. T
 
 PCW keeps retrieval selective and on demand:
 
-1. resolve a configured logical shared context or workstream;
-2. list available sources without loading their contents;
-3. read only the selected document.
+1. consult the relevant workstream continuity;
+2. search the semantic inventory;
+3. identify a logical section and list its sources;
+4. read only the selected documents.
 
 Supported readers are Markdown/plain text (`.md` and `.txt`), DOCX, and PDF. DOCX extraction is text-oriented. PDF extraction supports selectable text; OCR and image extraction are not supported, so image-only PDFs may return little or no text. Readers operate locally and every source remains constrained by the PCW filesystem boundary.
 
