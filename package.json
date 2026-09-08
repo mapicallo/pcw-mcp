@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts"
+    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts tests/mcp-registration.test.ts"
   },
   "keywords": [],
   "author": "",

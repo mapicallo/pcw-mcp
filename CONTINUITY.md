@@ -124,7 +124,7 @@ Compiled output, when generated:
 dist/server.js
 ```
 
-The v0.1 behavior is now covered by automated characterization tests. Typed configuration, filesystem security, source readers, inventory, continuity, and MCP response translation have focused module boundaries; `src/server.ts` still owns explicit tool registration, input schemas, logical-scope orchestration, and bootstrap.
+The v0.1 behavior is now covered by automated characterization tests. Typed configuration, filesystem security, source readers, inventory, continuity, and MCP response translation have focused module boundaries. Domain-oriented modules under `src/mcp/tools/` now own explicit tool registrations, input schemas, and tool orchestration; `src/server.ts` is limited to composition and stdio/process bootstrap.
 
 The server uses stdio:
 
@@ -147,7 +147,7 @@ PCW_CONTEXT_ROOT
 
 ## Current MCP Tools
 
-Confirmed registered tools in `src/server.ts`:
+Confirmed registered tools composed by `src/server.ts`:
 
 - `hello`
 - `get_project_info`
@@ -258,14 +258,14 @@ Do not remove backup, SHA, stale-write rejection, or atomic write behavior.
 
 ## Known Technical Debt
 
-After Blocks 3 through 8, `src/server.ts` still owns:
+After Block 9, `src/server.ts` owns only:
 
-- MCP server setup and bootstrap
-- explicit tool registration
-- MCP input schemas
-- repeated logical shared/workstream scope orchestration
+- MCP server metadata and construction;
+- `PCW_CONTEXT_ROOT` selection;
+- explicit composition of the domain registration modules;
+- stdio transport connection and top-level fatal handling.
 
-JSON/text response construction and typed continuity, inventory, and source/path error translation now live under `src/mcp`. Configuration, path safety, source readers, inventory, and continuity remain independent service boundaries.
+Tool registrations and Zod schemas now live in domain-oriented modules under `src/mcp/tools/`. JSON/text response construction and typed continuity, inventory, and source/path error translation remain under `src/mcp`. Configuration, path safety, source readers, inventory, and continuity remain independent service boundaries.
 
 Likely module boundaries for v0.2:
 
@@ -821,3 +821,57 @@ Intentionally deferred:
 Recommended Block 9: decompose explicit MCP tool registrations into small domain-focused registration modules and leave `server.ts` as composition/bootstrap. Preserve every tool name, Zod input schema, response/error contract, and all 113 tests. Keep shared-scope deduplication conservative and do not add tools, resources, prompts, HTTP transport, or dependency-injection infrastructure.
 
 The final commit hash is reported in the Block 8 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 9 Validation
+
+Block 9 scope:
+
+```text
+Modularize MCP tool registrations by domain.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `refactor: modularize MCP tool registration`.
+
+New registration modules:
+
+- `src/mcp/tools/project-tools.ts`: `hello`, `get_project_info`;
+- `src/mcp/tools/workstream-tools.ts`: `list_workstreams`, `get_workstream_info`, `list_shared_context`;
+- `src/mcp/tools/source-tools.ts`: `list_sources`, `read_text_source`, `read_docx_source`, `read_pdf_source`;
+- `src/mcp/tools/inventory-tools.ts`: `get_inventory`, `search_inventory`;
+- `src/mcp/tools/continuity-tools.ts`: `get_continuity`, `update_continuity`.
+
+Each module exposes one explicit `register*Tools(server, contextRoot)` function. It imports only its existing service, reader, configuration, and MCP response/error dependencies. No dependency-injection container, generic tool factory, dynamic discovery, new dependency, or hidden global state was introduced.
+
+`src/server.ts` now creates the `McpServer`, chooses the environment/default context root, invokes the five registration functions, connects `StdioServerTransport`, and handles top-level startup failure. It changed from 850 to 38 physical lines.
+
+The repeated shared/workstream scope resolution in source registrations was intentionally not abstracted in this block. The four handlers preserve distinct established missing-context messages, and exact movement was safer than introducing a helper that might collapse those public semantics.
+
+Contract tests added before movement verify:
+
+- the exact set of 13 tool names, with no missing, duplicate, or unexpected tools;
+- the established `list_sources` description, required fields, scope enum, and scope description;
+- the `search_inventory` required query and integer limit range of 1 through 20;
+- the `update_continuity` required fields, 200,000-character content limit, and 64-character SHA length.
+
+Validation results:
+
+```text
+npm run build: passed
+previous tests: 113 passed, 0 failed
+new MCP registration tests: 2 passed, 0 failed
+total: 115 passed, 0 failed
+```
+
+All tool names, descriptions, Zod input schemas, handler workflows, response/error helpers, payloads, service behavior, filesystem protections, and stdio bootstrap behavior remain compatible. Tool-list ordering is not treated as a public contract; the exact logical set is protected.
+
+Intentionally deferred:
+
+- separating testable server creation/composition from process and stdio startup;
+- deduplicating shared/workstream source-scope resolution after its distinct error semantics are characterized explicitly;
+- explicit public mapping/versioning for `PcwConfigError`;
+- machine-readable public error codes, logging infrastructure, additional transports, resources, and prompts;
+- normalization of the package/server version discrepancy.
+
+Recommended Block 10: extract a small testable server composition function from stdio/process startup while preserving server metadata, `PCW_CONTEXT_ROOT` behavior, all registrations, the exact MCP contract, and all 115 tests. Do not add HTTP/SSE transport, resources, prompts, logging infrastructure, generic registration machinery, or dependency injection.
+
+The final commit hash is reported in the Block 9 completion response and can be recovered with `git log -1 --oneline`.
