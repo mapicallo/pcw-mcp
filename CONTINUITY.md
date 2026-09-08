@@ -124,7 +124,7 @@ Compiled output, when generated:
 dist/server.js
 ```
 
-The v0.1 behavior is now covered by automated characterization tests. Typed configuration, filesystem security, source readers, inventory, continuity, and MCP response translation have focused module boundaries. Domain-oriented modules under `src/mcp/tools/` now own explicit tool registrations, input schemas, and tool orchestration; `src/server.ts` is limited to composition and stdio/process bootstrap.
+The v0.1 behavior is now covered by automated characterization tests. Typed configuration, filesystem security, source readers, inventory, continuity, and MCP response translation have focused module boundaries. Domain-oriented modules under `src/mcp/tools/` own explicit tool registrations, input schemas, and tool orchestration. `src/mcp/create-server.ts` composes a fully registered server from an explicit context root; `src/server.ts` is limited to runtime root resolution and stdio/process bootstrap.
 
 The server uses stdio:
 
@@ -258,14 +258,13 @@ Do not remove backup, SHA, stale-write rejection, or atomic write behavior.
 
 ## Known Technical Debt
 
-After Block 9, `src/server.ts` owns only:
+After Block 10, `src/server.ts` owns only:
 
-- MCP server metadata and construction;
 - `PCW_CONTEXT_ROOT` selection;
-- explicit composition of the domain registration modules;
+- invocation of the reusable server factory;
 - stdio transport connection and top-level fatal handling.
 
-Tool registrations and Zod schemas now live in domain-oriented modules under `src/mcp/tools/`. JSON/text response construction and typed continuity, inventory, and source/path error translation remain under `src/mcp`. Configuration, path safety, source readers, inventory, and continuity remain independent service boundaries.
+Server metadata and explicit registration composition live in `src/mcp/create-server.ts`. Tool registrations and Zod schemas remain in domain-oriented modules under `src/mcp/tools/`. JSON/text response construction and typed continuity, inventory, and source/path error translation remain under `src/mcp`. Configuration, path safety, source readers, inventory, and continuity remain independent service boundaries.
 
 Likely module boundaries for v0.2:
 
@@ -875,3 +874,61 @@ Intentionally deferred:
 Recommended Block 10: extract a small testable server composition function from stdio/process startup while preserving server metadata, `PCW_CONTEXT_ROOT` behavior, all registrations, the exact MCP contract, and all 115 tests. Do not add HTTP/SSE transport, resources, prompts, logging infrastructure, generic registration machinery, or dependency injection.
 
 The final commit hash is reported in the Block 9 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 10 Validation
+
+Block 10 scope:
+
+```text
+Server composition and stdio bootstrap separation.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `refactor: separate MCP server composition from stdio bootstrap`.
+
+New modules:
+
+- `src/mcp/create-server.ts`: `createPcwMcpServer({ contextRoot })` constructs `McpServer`, preserves metadata, explicitly invokes the five registration APIs, and returns the unconnected server;
+- `src/runtime/context-root.ts`: pure `resolveRuntimeContextRoot(environment)` helper plus the unchanged `C:\rmms-context` fallback constant.
+
+Bootstrap responsibilities remaining in `src/server.ts`:
+
+- resolve `PCW_CONTEXT_ROOT` from `process.env` using nullish fallback semantics;
+- pass the resolved root into the server factory;
+- create and connect `StdioServerTransport`;
+- report fatal startup failure and exit nonzero.
+
+The factory does not read or mutate environment state, connect a transport, call `process.exit`, install signal handlers, or emit startup logs. Server metadata remains `pcw-mcp` / `0.1.0`, while package metadata remains `1.0.0`; deliberate version normalization is deferred.
+
+Focused tests use the SDK's public `InMemoryTransport.createLinkedPair()` and cover:
+
+- unconnected factory creation and process-state preservation;
+- exact 13-tool set, no duplicates, and current server metadata;
+- explicit context root taking precedence over unrelated process environment;
+- simultaneous independent servers backed by two different temporary synthetic contexts;
+- exact environment override, fallback, and empty-string semantics;
+- the compiled `dist/server.js` stdio entrypoint through the existing MCP client helper.
+
+Validation results:
+
+```text
+npm run build: passed
+previous tests: 115 passed, 0 failed
+new composition/bootstrap tests: 6 passed, 0 failed
+total: 121 passed, 0 failed
+```
+
+`npm run start` still executes `node dist/server.js`. Existing Codex, Cursor, and MCP Inspector commands therefore need no configuration change. Automated stdio negotiation and a real tool call through `dist/server.js` pass; no browser-based Inspector session was necessary.
+
+All tool names, registration order, descriptions, schemas, responses, errors, service behavior, security wiring, and stdio semantics remain unchanged. No transport, CLI argument, dependency, resource, prompt, or product capability was added.
+
+Intentionally deferred:
+
+- package/server/release version normalization;
+- explicit public mapping and compatibility policy for `PcwConfigError`;
+- machine-readable public error codes;
+- CLI arguments and additional transports;
+- lifecycle/signal handling, logging infrastructure, packaging, and release automation.
+
+Recommended Block 11: establish an explicit public MCP contract and versioning baseline. Characterize remaining configuration-error behavior, decide and document package/server version normalization for v0.2, and define compatibility expectations without adding tools, transports, resources, prompts, or distribution infrastructure.
+
+The final commit hash is reported in the Block 10 completion response and can be recovered with `git log -1 --oneline`.

@@ -83,7 +83,9 @@ Each configured workstream has at most one canonical continuity document. PCW re
 
 ## MCP Adapter Boundary
 
-PCW configuration and domain services return typed results or throw typed operational errors without constructing MCP responses. The MCP adapter translates those values into the established text-content envelopes. Domain-oriented modules under `src/mcp/tools/` retain explicit tool registrations and input schemas, while `src/server.ts` composes those modules and starts the stdio transport.
+PCW configuration and domain services return typed results or throw typed operational errors without constructing MCP responses. The MCP adapter translates those values into the established text-content envelopes. Domain-oriented modules under `src/mcp/tools/` retain explicit tool registrations and input schemas. `createPcwMcpServer({ contextRoot })` composes a fully registered server without starting a transport or reading process state.
+
+The executable `src/server.ts` resolves `PCW_CONTEXT_ROOT`, applies the established local fallback, creates the server, and connects `StdioServerTransport`. Stdio remains the only implemented transport; the separation does not provide HTTP, SSE, or remote MCP support.
 
 This keeps the durable PCW model independent from its current transport representation: MCP is an interface to PCW, not PCW itself.
 
