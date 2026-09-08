@@ -510,3 +510,59 @@ Intentionally deferred:
 Recommended Block 4: extract a dedicated filesystem path boundary and harden every configured read path against escaping the PCW context root. Add focused synthetic regression tests for relative and absolute configured-path escapes while preserving the 24 existing tests and current MCP contracts. Do not begin reader or continuity modularization in the same block.
 
 The final commit hash is reported in the Block 3 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 4 Validation
+
+Block 4 scope:
+
+```text
+Filesystem boundary, safe path resolution, and hashing extraction.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `refactor: extract safe filesystem boundary`.
+
+New modules:
+
+- `src/filesystem/paths.ts`: normalized root handling, path-aware containment, safe configured-path resolution, section-scoped source resolution, realpath containment checks, and `PcwPathError`;
+- `src/filesystem/hashing.ts`: deterministic SHA-256 hashing for UTF-8 text.
+
+Path-security rules:
+
+- configured paths are resolved against `PCW_CONTEXT_ROOT` and rejected if they escape it;
+- valid relative and nested paths remain supported;
+- absolute paths remain supported only when they resolve inside the root;
+- similarly prefixed sibling paths are not considered children;
+- source paths must remain inside both the PCW root and their configured logical section;
+- Windows backslash traversal is rejected on Windows;
+- continuity targets and generated history directories remain root-confined.
+
+Existing filesystem targets are also checked with `realpath`. Symlinks and Windows junctions that resolve outside the root or selected section are rejected. A local time-of-check/time-of-use race remains possible if an actor mutates links between validation and file access; handle-based platform-specific mitigation is intentionally deferred and documented in `docs/security.md`.
+
+The previous local `ensureInsideBase` and SHA-256 implementations were removed from `src/server.ts`. Hashing now uses `sha256Text(content)`, preserving UTF-8 input and 64-character lowercase hexadecimal output. No metadata module was created because current metadata operations do not yet share enough coherent behavior to justify one.
+
+Validation results:
+
+```text
+npm run build: passed
+previous characterization/config tests: 24 passed, 0 failed
+new filesystem/hash tests: 17 passed, 0 failed
+total: 41 passed, 0 failed
+```
+
+New coverage includes normal and nested paths, single and multiple traversal, outside and in-root absolute paths, sibling prefix confusion, each configured resource category, section escape, Windows traversal, real symlink/junction escape, and deterministic SHA-256 behavior.
+
+Tool names, input schemas, successful response fields, readers, inventory logic, continuity workflow, and server bootstrap remain compatible. Unsafe configured paths and link escapes are now intentionally rejected before filesystem content access.
+
+Intentionally deferred:
+
+- lower-level TOCTOU-resistant file handles;
+- broader MCP response/error formatting;
+- source reader extraction;
+- inventory extraction;
+- continuity service extraction;
+- metadata abstraction;
+- server bootstrap changes.
+
+Recommended Block 5: extract the text, DOCX, and PDF source-reader domain behind the established filesystem boundary. Preserve all MCP contracts, add small synthetic DOCX/PDF fixtures if robust, and keep inventory and continuity workflow modularization out of that block.
+
+The final commit hash is reported in the Block 4 completion response and can be recovered with `git log -1 --oneline`.

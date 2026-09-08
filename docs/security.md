@@ -2,50 +2,63 @@
 
 PCW-MCP treats context documents as potentially sensitive local project data.
 
-The current POC is not security-hardened or production-ready. These notes document the intended boundaries and known areas for improvement.
+The v0.2 foundation is not a complete sandbox or production security boundary. These notes describe the protections that are currently implemented and the risks that remain.
 
-## Existing Boundaries
+## Implemented Boundaries
 
-- PCW-MCP reads from a configured PCW context root.
-- Source-reading tools are scoped to configured shared context sections or workstream context sections.
-- Continuity update is currently the only intended write capability.
-- Continuity writes require an expected SHA-256 to reduce accidental overwrites.
-- Stale continuity writes are rejected.
-- Previous continuity content is backed up before replacement.
-- Continuity replacement uses atomic file writing.
-- Path traversal protection exists through an `ensureInsideBase` helper.
+- PCW-MCP reads configuration from the selected PCW context root.
+- Every configured path used for filesystem access is resolved through the filesystem boundary and must remain inside that root.
+- Relative traversal and absolute paths outside the root are rejected with path-aware containment checks.
+- Absolute configured paths remain supported only when they resolve inside the root.
+- Source-reading tools are additionally confined to their configured shared-context or workstream section.
+- Continuity update is the only intended write capability.
+- Continuity writes require the expected SHA-256 and reject stale versions.
+- Previous continuity is backed up before atomic replacement.
+- History directories and continuity targets are checked against the context root.
+
+PCW-MCP must not be treated as a general filesystem browser. Configuration and tool inputs do not grant access outside the selected context root.
+
+## Path Safety
+
+Containment uses normalized paths plus `relative()` and `isAbsolute()`; it does not use unsafe string-prefix comparisons. This distinguishes a real child from a similarly named sibling such as `context-other`.
+
+The Zod configuration schema validates path field structure. Filesystem safety is enforced separately when a configured path is resolved.
+
+Tool-provided source paths have two boundaries:
+
+- the complete PCW context root;
+- the specific configured section selected by the tool call.
+
+A source path that remains inside the global root but escapes its selected section is rejected.
+
+## Symbolic Links And Reparse Points
+
+For existing targets, PCW-MCP resolves the real paths of the root and target before reading metadata or content. Existing source targets are checked against both the real context root and the real configured section. This rejects symbolic links and Windows junctions that lead outside an allowed boundary.
+
+A residual time-of-check/time-of-use risk remains: a local actor with concurrent filesystem write access could replace a link or path after the `realpath` check and before the subsequent open, copy, or atomic-write operation. Fully eliminating that race requires lower-level handle-based and platform-specific controls and is deferred.
+
+The server therefore does not claim protection against a malicious local user who can mutate the context tree concurrently.
 
 ## Sensitive Context
 
 Real project contexts may contain private documents, internal decisions, customer data, credentials, or other sensitive information.
 
-Private context directories must not be committed into this repository. Public examples, tests, fixtures, and documentation must use synthetic data.
-
-## Path Safety
-
-PCW-MCP must never expose arbitrary filesystem reads. Configured paths and user-provided source names should be resolved through a central safe path helper that verifies the final path remains inside the intended base directory.
-
-One v0.2 hardening task is to apply safe resolution consistently to all read, list, and write paths.
+Private context directories must not be committed into this repository. Public examples, tests, fixtures, and documentation use synthetic data.
 
 ## Prompt Injection Risk
 
 Context documents are data. They may contain text that looks like instructions to an AI agent.
 
-PCW should continue to distinguish between:
-
-- project knowledge/data;
-- PCW control metadata;
-- explicit agent instructions.
-
-This separation is a future security concern and should be documented and tested as the model evolves.
+PCW should continue to distinguish between project knowledge, PCW control metadata, and explicit agent instructions. Stronger treatment of document-originated prompt injection remains future work.
 
 ## Non-Claims
 
 PCW-MCP does not currently claim:
 
 - production security hardening;
+- operating-system sandboxing;
 - multi-user isolation;
 - authentication;
 - remote access safety;
-- sandboxing of document contents;
-- protection against all malicious local configurations.
+- protection against concurrent local filesystem mutation;
+- sandboxing of document contents.

@@ -8,13 +8,8 @@ import {
 
 import {
   extname,
-  isAbsolute,
-  join,
-  relative,
-  resolve
+  join
 } from "node:path";
-
-import { createHash } from "node:crypto";
 
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
@@ -29,9 +24,16 @@ import {
   findWorkstream,
   getSharedContexts,
   getWorkstreams,
-  loadPcwConfig,
-  resolveConfiguredPath
+  loadPcwConfig
 } from "./config/pcw-config.js";
+import { sha256Text } from "./filesystem/hashing.js";
+import {
+  assertExistingPathInsideBase,
+  assertExistingSourcePath,
+  ensureInsideBase,
+  resolveConfiguredPath,
+  resolveSourcePath
+} from "./filesystem/paths.js";
 
 const server = new McpServer({
   name: "pcw-mcp",
@@ -61,6 +63,7 @@ async function getPathStatus(path: string | null) {
   const absolutePath = resolveConfiguredPath(contextRoot, path);
 
   try {
+    await assertExistingPathInsideBase(contextRoot, absolutePath);
     const info = await stat(absolutePath);
 
     return {
@@ -122,27 +125,6 @@ function extractInventorySections(markdown: string) {
 
   return sections.filter((section) => section.content.length > 0);
 }
-
-function ensureInsideBase(basePath: string, candidatePath: string) {
-  const normalizedBase = resolve(basePath);
-  const normalizedCandidate = resolve(candidatePath);
-
-  const rel = relative(normalizedBase, normalizedCandidate);
-
-  if (rel.startsWith("..") || isAbsolute(rel)) {
-    throw new Error("Resolved path escapes the configured PCW context root");
-  }
-
-  return normalizedCandidate;
-}
-
-function sha256(text: string): string {
-  return createHash("sha256")
-    .update(text, "utf8")
-    .digest("hex");
-}
-
-
 
 server.registerTool(
   "hello",
@@ -367,8 +349,9 @@ server.registerTool(
     const absolutePath = resolveConfiguredPath(contextRoot, continuityPath);
 
     try {
+      await assertExistingPathInsideBase(contextRoot, absolutePath);
       const continuity = await readFile(absolutePath, "utf8");
-      const continuitySha256 = sha256(continuity);
+      const continuitySha256 = sha256Text(continuity);
 
       return {
         content: [
@@ -569,6 +552,7 @@ server.registerTool(
     const absolutePath = resolveConfiguredPath(contextRoot, configuredPath);
 
     try {
+      await assertExistingPathInsideBase(contextRoot, absolutePath);
       const entries = await readdir(absolutePath, {
         withFileTypes: true
       });
@@ -576,6 +560,11 @@ server.registerTool(
       const sources = await Promise.all(
         entries.map(async (entry) => {
           const entryPath = join(absolutePath, entry.name);
+          await assertExistingSourcePath(
+            contextRoot,
+            absolutePath,
+            entryPath
+          );
           const info = await stat(entryPath);
 
           return {
@@ -668,6 +657,7 @@ server.registerTool(
     const absolutePath = resolveConfiguredPath(contextRoot, inventoryPath);
 
     try {
+      await assertExistingPathInsideBase(contextRoot, absolutePath);
       const info = await stat(absolutePath);
 
       if (!info.isFile()) {
@@ -777,6 +767,7 @@ server.registerTool(
     const absolutePath = resolveConfiguredPath(contextRoot, inventoryPath);
 
     try {
+      await assertExistingPathInsideBase(contextRoot, absolutePath);
       const inventory = await readFile(absolutePath, "utf8");
 
       const sections = extractInventorySections(inventory);
@@ -958,9 +949,15 @@ server.registerTool(
     const basePath = resolveConfiguredPath(contextRoot, configuredPath);
 
     try {
-      const sourcePath = ensureInsideBase(
+      const sourcePath = resolveSourcePath(
+        contextRoot,
         basePath,
-        join(basePath, source)
+        source
+      );
+      await assertExistingSourcePath(
+        contextRoot,
+        basePath,
+        sourcePath
       );
 
       const info = await stat(sourcePath);
@@ -1139,9 +1136,15 @@ server.registerTool(
     const basePath = resolveConfiguredPath(contextRoot, configuredPath);
 
     try {
-      const sourcePath = ensureInsideBase(
+      const sourcePath = resolveSourcePath(
+        contextRoot,
         basePath,
-        join(basePath, source)
+        source
+      );
+      await assertExistingSourcePath(
+        contextRoot,
+        basePath,
+        sourcePath
       );
 
       const info = await stat(sourcePath);
@@ -1321,9 +1324,15 @@ server.registerTool(
     const basePath = resolveConfiguredPath(contextRoot, configuredPath);
 
     try {
-      const sourcePath = ensureInsideBase(
+      const sourcePath = resolveSourcePath(
+        contextRoot,
         basePath,
-        join(basePath, source)
+        source
+      );
+      await assertExistingSourcePath(
+        contextRoot,
+        basePath,
+        sourcePath
       );
 
       const info = await stat(sourcePath);
@@ -1489,10 +1498,11 @@ server.registerTool(
        * even if pcw.yml were modified incorrectly, the configured
        * continuity path may never escape the PCW context root.
        */
-      const absolutePath = ensureInsideBase(
+      const absolutePath = resolveConfiguredPath(
         contextRoot,
-        resolveConfiguredPath(contextRoot, continuityPath)
+        continuityPath
       );
+      await assertExistingPathInsideBase(contextRoot, absolutePath);
 
       const info = await stat(absolutePath);
 
@@ -1501,7 +1511,7 @@ server.registerTool(
       }
 
       const currentContent = await readFile(absolutePath, "utf8");
-      const currentSha256 = sha256(currentContent);
+      const currentSha256 = sha256Text(currentContent);
 
       /*
        * Optimistic concurrency check.
@@ -1539,18 +1549,25 @@ server.registerTool(
         .toISOString()
         .replace(/[:.]/g, "-");
 
-      const historyDirectory = ensureInsideBase(
+      const historyDirectory = resolveConfiguredPath(
         contextRoot,
-        join(contextRoot, ".pcw", "history", realName)
+        join(".pcw", "history", realName)
       );
 
       await mkdir(historyDirectory, {
         recursive: true
       });
+      await assertExistingPathInsideBase(
+        contextRoot,
+        historyDirectory
+      );
 
-      const backupPath = join(
+      const backupPath = ensureInsideBase(
         historyDirectory,
-        `${timestamp}-${currentSha256.slice(0, 12)}.md`
+        join(
+          historyDirectory,
+          `${timestamp}-${currentSha256.slice(0, 12)}.md`
+        )
       );
 
       await copyFile(
@@ -1569,7 +1586,7 @@ server.registerTool(
         }
       );
 
-      const newSha256 = sha256(content);
+      const newSha256 = sha256Text(content);
 
       return {
         content: [

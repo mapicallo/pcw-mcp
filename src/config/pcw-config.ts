@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 import { parse } from "yaml";
 
@@ -119,11 +119,4 @@ export function findSharedContext(
   return name
     ? { name, config: sharedContexts[name] }
     : null;
-}
-
-export function resolveConfiguredPath(
-  contextRoot: string,
-  configuredPath: string
-): string {
-  return resolve(contextRoot, configuredPath);
 }
