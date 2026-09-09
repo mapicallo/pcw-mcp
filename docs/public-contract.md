@@ -1,124 +1,97 @@
-# PCW v0.2 Public Contract Baseline
+# PCW v0.2 Private Beta Contract
 
-This document defines the externally observable contract of the PCW-MCP v0.2 development line. The current software version is `0.2.0-dev.2`; this is a SemVer prerelease, not a release or stability claim.
+This document defines the externally observable contract of PCW-MCP `0.2.0-beta.1`. It is a private-beta release-candidate baseline, not a `1.0` stability claim and not a published release.
 
-Detailed tool and configuration contracts live in [MCP tools](mcp-tools.md) and [pcw.yml](pcw-yml.md).
+Detailed contracts live in [MCP tools](mcp-tools.md), [pcw.yml](pcw-yml.md), and the [private beta guide](private-beta.md).
 
 ## Public And Internal Surfaces
 
-The public contract currently includes:
+The public contract includes:
 
-- MCP server identity and version;
+- MCP server identity `pcw-mcp` and package-derived version;
 - `node dist/server.js` as the stdio entrypoint;
-- `PCW_CONTEXT_ROOT` runtime selection;
-- the 13 registered MCP tools, their descriptions, schemas, payloads, and error semantics;
+- `--context-root <path>` and `PCW_CONTEXT_ROOT` runtime selection;
+- the 12 registered MCP tools, schemas, descriptions, success payloads, and documented error semantics;
 - the accepted `pcw.yml` structure;
-- continuity SHA-256 concurrency and replacement protocol;
-- paths currently returned as `absolutePath` and `backupPath`.
+- continuity SHA-256 concurrency and complete-document replacement protocol;
+- `absolutePath` and `backupPath` fields currently returned by local operations.
 
-Module paths, service classes, helper functions, source layout, temporary filenames, and internal error classes are implementation details unless explicitly documented otherwise.
+Source modules, service classes, helper functions, temporary filenames, and internal error classes are implementation details.
 
 ## Identity And Versioning
 
-The MCP server name is `pcw-mcp`. The package version in `package.json` is the single runtime source of the advertised MCP version. The current value is `0.2.0-dev.2`.
+`package.json` is the single software-version source of truth. The MCP server and `--version` derive `0.2.0-beta.1` from it. Software version and `pcw.yml.version` are separate: the latter is an optional string or number under the current configuration contract.
 
-Software version and `pcw.yml` schema version are separate:
-
-- software version identifies this server implementation;
-- `pcw.yml.version` identifies a configuration format and currently remains optional, accepting a string or number.
-
-No `v0.2.0` release or release tag exists yet.
+No beta release tag or publication exists yet.
 
 ## Runtime
 
-The supported executable path remains:
-
-```text
-node dist/server.js
-```
-
-Stdio is the only implemented transport. The context root is selected explicitly with this precedence:
+Run `node dist/server.js`. Stdio is the only transport. Context-root precedence is:
 
 1. `--context-root <path>`;
 2. `PCW_CONTEXT_ROOT`;
 3. startup failure.
 
-Empty or whitespace-only values are not configured. Before MCP starts, PCW verifies that the selected root exists, is a directory, and contains a `pcw.yml` file. `--help` and `--version` exit without starting MCP. The former developer-specific fallback has been removed. See [local runtime](runtime.md).
-
-The declared Node engine is `>=22.9.0`. This satisfies the installed production dependencies' declared requirements and uses a supported LTS-generation baseline. The suite is currently verified on Node 24.3.0; Node 22.9.0 has not yet been exercised in CI.
+The root must exist, be a directory, and contain a `pcw.yml` file. The declared Node engine is `>=22.9.0`. CI is configured for Node 22 and 24; a Node version is considered verified only after its job succeeds.
 
 ## MCP Tools
 
-The public baseline contains exactly these 13 tools:
+The beta baseline contains exactly 12 tools:
 
-`hello`, `get_project_info`, `list_workstreams`, `get_workstream_info`, `get_continuity`, `list_shared_context`, `list_sources`, `get_inventory`, `search_inventory`, `read_text_source`, `read_docx_source`, `read_pdf_source`, and `update_continuity`.
+`get_project_info`, `list_workstreams`, `get_workstream_info`, `get_continuity`, `list_shared_context`, `list_sources`, `get_inventory`, `search_inventory`, `read_text_source`, `read_docx_source`, `read_pdf_source`, and `update_continuity`.
 
-`update_continuity` is the only intended write operation. Every other tool is diagnostic, discovery, search, or read-only.
+The POC-only `hello` tool was intentionally removed before the beta freeze. MCP initialization and tool discovery provide protocol-level availability checks. `update_continuity` remains the only intended write operation.
 
-`hello` remains in this development baseline for compatibility. It duplicates MCP initialization as a health check, so the recommendation is to remove it before the first beta, with explicit owner approval and release notes. If shipped in a beta, it should then be treated as supported for that compatibility line.
+## Responses And Errors
 
-## Response And Error Semantics
+Successful structured results remain pretty-printed JSON in one MCP text content item. Expected failures set `isError: true` and return a JSON text payload containing:
 
-Successful structured results use one MCP text content item containing pretty-printed JSON. `hello` returns plain text. Expected operational failures set `isError: true`.
+- a stable `code` from the list below;
+- the existing human-readable `error` message;
+- existing category-specific fields such as `available`, `availableWorkstreams`, `path`, `source`, or `details`.
 
-Current stable semantic error categories include:
+The frozen beta codes are:
 
-- unknown workstream or shared context, with available names where currently supplied;
-- continuity or inventory not configured;
-- malformed or structurally invalid `pcw.yml`;
-- unsafe or escaping paths;
-- missing sources or non-file targets;
-- unsupported reader or continuity extensions;
-- inventory read/search failures;
-- stale continuity updates;
-- invalid continuity targets and update failures;
-- sanitized unexpected failures.
+- `PCW_CONFIG_INVALID`;
+- `PCW_WORKSTREAM_NOT_FOUND`;
+- `PCW_CONTEXT_NOT_CONFIGURED`;
+- `PCW_PATH_UNSAFE`;
+- `PCW_SOURCE_ERROR`;
+- `PCW_INVENTORY_ERROR`;
+- `PCW_CONTINUITY_NOT_CONFIGURED`;
+- `PCW_CONTINUITY_INVALID`;
+- `PCW_CONTINUITY_STALE`;
+- `PCW_INTERNAL_ERROR`.
 
-Configuration loading errors currently use the SDK's plain-text MCP error response. They include a concise read, parse, or validation message and the configured `pcw.yml` path. Structural validation includes at most three bounded issue summaries. Stack traces, raw Zod objects, and file contents are not returned.
+Codes describe client-relevant categories, not every internal failure. Unexpected exceptions use `PCW_INTERNAL_ERROR` with a sanitized message; stacks and arbitrary thrown objects are not returned. Configuration validation remains concise and bounded to at most three schema issue summaries.
 
-Other expected domain errors generally use JSON text payloads. Fields such as `available`, `availableWorkstreams`, `path`, `source`, and `details` remain category-specific. Clients should inspect `isError` before parsing the text payload.
-
-Stale continuity errors preserve `error`, `workstream`, `expectedSha256`, `currentSha256`, and `action`. These fields form part of the concurrency protocol.
-
-PCW currently has no machine-readable error codes. Before beta, the recommendation is to add a small stable code set for major client decisions, while preserving human-readable messages and existing fields. A broad taxonomy is not justified.
+A stale continuity payload preserves `workstream`, `expectedSha256`, `currentSha256`, and `action` in addition to `code: "PCW_CONTINUITY_STALE"` and the existing message.
 
 ## Path Exposure
 
-Several validated responses expose `absolutePath`; successful continuity updates also expose `backupPath`. This is current public behavior and remains unchanged for compatibility.
-
-These fields reveal local filesystem topology. They are tolerable for the current local-only private-beta model but should be reviewed before any remote transport or broader public release. A future breaking contract should prefer configured relative paths or an explicit redaction policy.
+`absolutePath` and `backupPath` remain part of the local `0.2` beta contract. They reveal local filesystem topology and must be reconsidered before remote MCP or shared-server deployment.
 
 ## Continuity Update Protocol
 
-The public write protocol is:
+1. Call `get_continuity` and retain its SHA-256.
+2. Prepare a complete replacement Markdown document.
+3. Call `update_continuity` with `expectedSha256`.
+4. PCW rejects a stale SHA without backup or overwrite.
+5. For a current SHA, PCW backs up the previous content and atomically replaces it.
+6. PCW returns previous/new SHA values and backup metadata.
 
-1. call `get_continuity`;
-2. receive the complete content and its SHA-256;
-3. prepare a complete replacement document;
-4. call `update_continuity` with `expectedSha256`;
-5. PCW compares it with the current SHA;
-6. a stale value is rejected without backup or overwrite;
-7. a current value causes the old content to be backed up;
-8. PCW atomically replaces the canonical Markdown file;
-9. the response returns previous and new SHA values plus backup metadata.
+This is complete-document replacement, not a patch or merge operation.
 
-This is complete-document replacement, not a patch. PCW does not retry, merge, or resolve conflicts automatically.
+## Configuration Compatibility
+
+The `pcw.yml` schema is unchanged for this beta. Dynamic logical names remain supported, physical paths remain user-defined, and continuity may be configured without specialized workstream context. Tightening the optional string-or-number `version` field requires a future explicit schema migration.
 
 ## Compatibility Policy
 
-PCW is pre-1.0, so interfaces may still evolve. Changes will not be made silently:
+PCW is pre-1.0. Fixes should preserve this documented contract. Additive fields/tools may appear in later prereleases, but removals, renames, changed validation, error-code changes, and incompatible `pcw.yml` changes require an explicit version and migration note.
 
-- patch releases fix defects while preserving documented contracts;
-- minor/prerelease iterations may add tools, optional fields, or capabilities;
-- removals, renamed fields, changed validation, changed error semantics, and incompatible `pcw.yml` changes require explicit documentation, migration guidance, and an intentional version decision;
-- Git tags identify releases but are not runtime version sources.
+## Distribution Metadata And Blocker
 
-## Current Non-Goals
+The private package allowlists compiled output, public documentation, templates, and the synthetic sample context. Source, tests, fixtures, Git state, and project `CONTINUITY.md` are excluded. Repository metadata points to the credential-free Git origin. Author metadata remains unset because it has not been established.
 
-The v0.2 foundation does not provide remote synchronization, distributed locking, HTTP/SSE MCP, authentication, vector search, embeddings, RAG, OCR, automatic conflict merging, continuity restore APIs, cloud accounts, or arbitrary filesystem writes.
-
-## Distribution Metadata
-
-`package.json` declares the package name, prerelease version, description, ESM mode, scripts, `dist/server.js` main entry, Node engine, and `ISC` license value. The package is currently private and allowlists `dist/`, `README.md`, public documentation, `templates/`, and `examples/sample-context/` in addition to npm-required metadata. This prevents accidental publication and excludes source, tests, fixtures, and project continuity from a local package.
-
-No standalone LICENSE file currently exists. The owner must confirm the intended license and add its text before external distribution. Author/repository metadata, final packaging, and publication remain future work.
+The package still declares `ISC`, but no `LICENSE` file exists and the owner has not confirmed licensing terms. External handoff remains blocked until the owner makes that decision. Nothing in this baseline publishes the package or creates a release tag.

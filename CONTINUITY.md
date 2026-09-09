@@ -1149,3 +1149,67 @@ Deferred owner/contract decisions:
 Recommended Block 14: private-beta contract freeze and handoff readiness. Obtain owner decisions for license and `hello`, decide the minimal machine-readable error-code policy, add Node 22 CI/runtime verification, complete package author/repository metadata, and perform a final clean handoff rehearsal from the package plus public sample. Do not publish, tag a release, add transports, or create an installer without explicit approval.
 
 The final commit hash is reported in the Block 13 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 14 Validation
+
+Block 14 scope:
+
+```text
+Private-beta contract freeze and release-candidate validation.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `chore: freeze PCW private beta contract`.
+
+Beta contract decisions:
+
+- software version advanced from `0.2.0-dev.2` to `0.2.0-beta.1`;
+- `package.json` remains the source of truth for MCP metadata and `--version`;
+- the POC-only `hello` tool was intentionally removed before external dependency;
+- the frozen local-beta tool set contains 12 tools, with `update_continuity` as the only write operation;
+- successful payloads and existing human-readable error fields remain compatible;
+- `pcw.yml` validation and its optional string-or-number `version` semantics are unchanged;
+- `absolutePath` and `backupPath` remain in the local beta contract and require review before any remote/shared deployment.
+
+Public error contract:
+
+- `src/mcp/error-codes.ts` is the typed source of truth;
+- codes are `PCW_CONFIG_INVALID`, `PCW_WORKSTREAM_NOT_FOUND`, `PCW_CONTEXT_NOT_CONFIGURED`, `PCW_PATH_UNSAFE`, `PCW_SOURCE_ERROR`, `PCW_INVENTORY_ERROR`, `PCW_CONTINUITY_NOT_CONFIGURED`, `PCW_CONTINUITY_INVALID`, `PCW_CONTINUITY_STALE`, and `PCW_INTERNAL_ERROR`;
+- expected failures add `code` without removing existing message or diagnostic fields;
+- stale writes preserve `workstream`, `expectedSha256`, `currentSha256`, and `action`;
+- configuration exceptions are now translated to bounded JSON MCP errors;
+- unexpected exceptions are sanitized and do not expose stack traces or arbitrary thrown objects.
+
+Release-candidate verification and package boundary:
+
+- `npm run verify:beta` runs build, the standard suite, packaged clean-install smoke, and `npm pack --dry-run --json`;
+- verification passed three times locally on Node 24.3.0;
+- standard suite: 148 passed, 0 failed;
+- packaged clean-install smoke: 1 passed, 0 failed;
+- total automated tests across the two test commands: 149 passed, 0 failed;
+- the smoke installs the actual `pcw-mcp-0.2.0-beta.1.tgz` in an external temporary directory;
+- installed `--version` is `0.2.0-beta.1` and MCP exposes exactly 12 tools;
+- packaged project/workstream discovery, inventory search, text reading, continuity read/update, and stale rejection pass;
+- final artifact size was 25,995 bytes, unpacked size 102,885 bytes, with 46 files;
+- installed-package privacy scanning rejects private/local paths, the private project identifier, credential patterns, `src`, tests, `CONTINUITY.md`, and Git metadata;
+- the temporary artifact, installation, copied context, and generated history are removed after validation; no `.tgz` is committed.
+
+CI and metadata:
+
+- `.github/workflows/ci.yml` runs `npm ci`, build, and tests on Node 22.x and 24.x;
+- the packaged-install smoke runs on Node 22.x;
+- CI uses only repository synthetic fixtures and the public sample context;
+- Node 22 remains `configured, awaiting external CI result` until a real job succeeds;
+- credential-free repository metadata is derived from `origin`: `https://github.com/mapicallo/pcw-mcp`;
+- author metadata remains unset because it has not been established.
+
+Handoff documentation now contains the exact 12-tool contract, all ten public codes, first-user setup steps, tester security notes, and the reproducible verification command.
+
+Owner blocker:
+
+- package metadata still says `ISC`, no `LICENSE` file exists, and this block deliberately did not change either;
+- external handoff remains blocked on owner confirmation of licensing terms;
+- no package publication, GitHub Release, release tag, installer, or new transport was created.
+
+Recommended Block 15: resolve the owner license decision, require successful Node 22/24 CI evidence, and perform the explicitly approved first-tester handoff/release-candidate delivery. Add the chosen LICENSE only after approval, then decide whether to create a beta tag or GitHub prerelease and how to deliver the already validated package. Do not publish to npm, add an installer, or add another transport without separate approval.
+
+The final Block 14 commit hash is reported in the completion response and can be recovered with `git log -1 --oneline`.

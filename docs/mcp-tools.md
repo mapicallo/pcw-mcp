@@ -2,9 +2,10 @@
 
 All tools are exposed by server `pcw-mcp`. Structured success and error payloads are serialized as JSON in one MCP text content item unless noted otherwise. Inputs shown as strings require at least one character where marked `min 1`.
 
+The private-beta contract contains exactly 12 tools. The POC-only `hello` tool was removed before the beta freeze.
+
 | Tool | Type | Purpose |
 | --- | --- | --- |
-| `hello` | Diagnostic | Verify that the MCP server responds. |
 | `get_project_info` | Read | Return configured project and inventory metadata. |
 | `list_workstreams` | Discovery | List configured logical workstreams. |
 | `get_workstream_info` | Discovery | Return configuration and filesystem status for one workstream. |
@@ -19,14 +20,6 @@ All tools are exposed by server `pcw-mcp`. Structured success and error payloads
 | `update_continuity` | Write | Atomically replace continuity using optimistic concurrency. |
 
 ## Project And Workstreams
-
-### hello
-
-Input: `name: string`.
-
-Result: plain text `Hello <name>. PCW MCP is running correctly.`
-
-Status: development compatibility tool; its decision is pending before beta contract freeze. New integrations should not depend on it because MCP initialization already provides a health check.
 
 ### get_project_info
 
@@ -126,3 +119,20 @@ Input:
 Result: canonical `workstream`, configured `path`, `absolutePath`, `previousSha256`, `newSha256`, `backupPath`, and `updated: true`.
 
 Only configured Markdown continuity files can be updated. A stale write returns `error`, `workstream`, `expectedSha256`, `currentSha256`, and `action`; no overwrite or backup occurs. Other failures retain category-specific `path`, `availableWorkstreams`, or `details`.
+
+## Public Error Codes
+
+Expected failures set `isError: true` and add a stable `code` without removing existing human-readable or diagnostic fields:
+
+- `PCW_CONFIG_INVALID`: unreadable, malformed, or structurally invalid `pcw.yml`;
+- `PCW_WORKSTREAM_NOT_FOUND`: requested workstream is unknown;
+- `PCW_CONTEXT_NOT_CONFIGURED`: shared/workstream context is unknown or unavailable;
+- `PCW_PATH_UNSAFE`: a configured or requested path violates containment;
+- `PCW_SOURCE_ERROR`: source is missing, is not a file, has an unsupported type, or cannot be read;
+- `PCW_INVENTORY_ERROR`: inventory is absent, invalid, or cannot be read/searched;
+- `PCW_CONTINUITY_NOT_CONFIGURED`: workstream has no continuity path;
+- `PCW_CONTINUITY_INVALID`: continuity target or update operation is invalid;
+- `PCW_CONTINUITY_STALE`: optimistic-concurrency SHA mismatch;
+- `PCW_INTERNAL_ERROR`: sanitized unexpected failure.
+
+Clients should branch on `code` and retain the human-readable `error`. Existing fields such as `available`, `availableWorkstreams`, `path`, `source`, `details`, and all stale-write protocol fields remain category-specific.

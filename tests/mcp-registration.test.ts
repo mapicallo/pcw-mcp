@@ -4,7 +4,6 @@ import test from "node:test";
 import { fixtureRoot, withServer } from "./mcp-test-client.js";
 
 const expectedToolNames = [
-  "hello",
   "get_project_info",
   "list_workstreams",
   "get_workstream_info",

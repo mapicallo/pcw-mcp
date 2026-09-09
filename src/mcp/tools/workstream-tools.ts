@@ -13,7 +13,9 @@ import {
   assertExistingPathInsideBase,
   resolveConfiguredPath
 } from "../../filesystem/paths.js";
-import { jsonErrorResponse, jsonResponse } from "../responses.js";
+import { PCW_ERROR_CODES } from "../error-codes.js";
+import { withMcpErrorBoundary } from "../error-mapper.js";
+import { codedErrorResponse, jsonResponse } from "../responses.js";
 
 export function registerWorkstreamTools(
   server: McpServer,
@@ -62,11 +64,9 @@ export function registerWorkstreamTools(
         "Lists the persistent workstreams defined in pcw.yml and their configured context and continuity paths",
       inputSchema: z.object({})
     },
-    async () => {
+    async () => withMcpErrorBoundary(async () => {
       const { config } = await loadPcwConfig(contextRoot);
-
       const workstreamsConfig = getWorkstreams(config);
-
       const workstreams = Object.entries(workstreamsConfig).map(
         ([name, value]) => ({
           name,
@@ -76,7 +76,7 @@ export function registerWorkstreamTools(
       );
 
       return jsonResponse(workstreams);
-    }
+    })
   );
 
   server.registerTool(
@@ -85,54 +85,34 @@ export function registerWorkstreamTools(
       description:
         "Returns configuration and filesystem status for a persistent workstream defined in pcw.yml",
       inputSchema: z.object({
-        name: z
-          .string()
-          .min(1)
-          .describe("Name of the workstream, for example SNMP")
+        name: z.string().min(1).describe("Name of the workstream, for example SNMP")
       })
     },
-    async ({ name }) => {
+    async ({ name }) => withMcpErrorBoundary(async () => {
       const { config } = await loadPcwConfig(contextRoot);
-
       const workstreamsConfig = getWorkstreams(config);
-
-      // Permitimos SNMP, snmp, Snmp...
       const resolvedWorkstream = findWorkstream(config, name);
       const realName = resolvedWorkstream?.name;
 
       if (!realName) {
-        const available = Object.keys(workstreamsConfig);
-
-        return jsonErrorResponse({
+        return codedErrorResponse(PCW_ERROR_CODES.WORKSTREAM_NOT_FOUND, {
           error: `Workstream '${name}' is not defined`,
-          availableWorkstreams: available
+          availableWorkstreams: Object.keys(workstreamsConfig)
         });
       }
 
-      const workstream = resolvedWorkstream?.config;
-
-      const contextPath = workstream?.context?.path ?? null;
-      const continuityPath = workstream?.continuity?.path ?? null;
-
+      const workstream = resolvedWorkstream.config;
+      const contextPath = workstream.context?.path ?? null;
+      const continuityPath = workstream.continuity?.path ?? null;
       const contextStatus = await getPathStatus(contextPath);
       const continuityStatus = await getPathStatus(continuityPath);
 
-      const result = {
+      return jsonResponse({
         name: realName,
-
-        context: {
-          path: contextPath,
-          ...contextStatus
-        },
-
-        continuity: {
-          path: continuityPath,
-          ...continuityStatus
-        }
-      };
-
-      return jsonResponse(result);
-    }
+        context: { path: contextPath, ...contextStatus },
+        continuity: { path: continuityPath, ...continuityStatus }
+      });
+    })
   );
 
   server.registerTool(
@@ -142,27 +122,18 @@ export function registerWorkstreamTools(
         "Lists the shared context sections defined in pcw.yml and checks whether their configured paths exist",
       inputSchema: z.object({})
     },
-    async () => {
+    async () => withMcpErrorBoundary(async () => {
       const { config } = await loadPcwConfig(contextRoot);
-
       const sharedContextConfig = getSharedContexts(config);
-
       const sections = await Promise.all(
-        Object.entries(sharedContextConfig).map(
-          async ([name, value]) => {
-            const path = value?.path ?? null;
-            const status = await getPathStatus(path);
-
-            return {
-              name,
-              path,
-              ...status
-            };
-          }
-        )
+        Object.entries(sharedContextConfig).map(async ([name, value]) => {
+          const path = value?.path ?? null;
+          const status = await getPathStatus(path);
+          return { name, path, ...status };
+        })
       );
 
       return jsonResponse(sections);
-    }
+    })
   );
 }

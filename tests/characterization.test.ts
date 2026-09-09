@@ -334,6 +334,7 @@ test("update_continuity rejects stale writes without overwriting newer state", a
       });
 
       assert.equal(stale.isError, true);
+      assert.equal((stale.data as { code: string }).code, "PCW_CONTINUITY_STALE");
       assert.equal(stale.data.error, "Continuity has changed since it was read");
       assert.equal(stale.data.workstream, "BACKEND");
       assert.equal(stale.data.expectedSha256, sessionA.data.sha256);
@@ -361,6 +362,7 @@ test("read_text_source rejects traversal outside its configured context", async 
       );
 
       assert.equal(response.isError, true);
+      assert.equal((response.data as { code: string }).code, "PCW_PATH_UNSAFE");
       assert.equal(response.data.error, "Could not read source '../outside.txt'");
       assert.match(response.data.details, /escapes the configured PCW context root/);
       assert.doesNotMatch(JSON.stringify(response.data), /controlled traversal sentinel/);
@@ -376,6 +378,7 @@ test("get_workstream_info reports the current unknown-workstream error", async (
     }>(client, "get_workstream_info", { name: "MISSING" });
 
     assert.equal(response.isError, true);
+    assert.equal((response.data as { code: string }).code, "PCW_WORKSTREAM_NOT_FOUND");
     assert.equal(response.data.error, "Workstream 'MISSING' is not defined");
     assert.deepEqual(response.data.availableWorkstreams, [
       "BACKEND",

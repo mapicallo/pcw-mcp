@@ -1,5 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
+import type { PcwErrorCode } from "./error-codes.js";
+
 export function textResponse(text: string): CallToolResult {
   return {
     content: [{ type: "text", text }]
@@ -21,4 +23,11 @@ export function jsonErrorResponse(value: unknown): CallToolResult {
     ...jsonResponse(value),
     isError: true
   };
+}
+
+export function codedErrorResponse(
+  code: PcwErrorCode,
+  payload: { error: string } & Record<string, unknown>
+): CallToolResult {
+  return jsonErrorResponse({ ...payload, code });
 }

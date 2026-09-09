@@ -74,3 +74,7 @@ PCW-MCP does not currently claim:
 - remote access safety;
 - protection against concurrent local filesystem mutation;
 - sandboxing of document contents.
+
+## MCP Error Boundary
+
+Expected public failures are translated to a small stable string `code` plus the existing human-readable and category-specific fields. Unexpected exceptions use `PCW_INTERNAL_ERROR`; stack traces and arbitrary thrown objects are not returned. This limits accidental disclosure but does not make PCW a complete sandbox.

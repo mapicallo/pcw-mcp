@@ -16,7 +16,7 @@ PCW is intended to be vendor/provider neutral. The persistent state does not bel
 
 PCW-MCP v0.1 is a validated functional POC. It has demonstrated local stdio MCP access, selective persistent context retrieval, continuity versioning, controlled continuity writes, history backup, and optimistic concurrency.
 
-This project is not production-ready. The current software version is `0.2.0-dev.2`; v0.2 work is validating a local private-beta candidate and its public onboarding context.
+This project is not production-ready. `0.2.0-beta.1` is the local private-beta release candidate; it is not published and has no release tag.
 
 ## Current Stack
 
@@ -59,6 +59,13 @@ Run the automated characterization suite:
 npm test
 ```
 
+Run the complete release-candidate verification without publishing:
+
+```text
+npm run verify:beta
+```
+
+This runs the build, standard suite, clean package-install smoke, package/privacy checks, and an npm pack dry run.
 Run the slower clean-install smoke test, which packs and installs PCW entirely under the operating system temporary directory:
 
 ```text

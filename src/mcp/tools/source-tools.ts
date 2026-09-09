@@ -25,8 +25,15 @@ import {
   discoverSources,
   resolveSourceFile
 } from "../../sources/source-service.js";
-import { sourceReadErrorResponse } from "../error-mapper.js";
-import { jsonErrorResponse, jsonResponse } from "../responses.js";
+import {
+  contextNotConfiguredErrorResponse,
+  logicalContextNotFoundErrorResponse,
+  sourceListingErrorResponse,
+  sourceReadErrorResponse,
+  sourceTypeErrorResponse,
+  withMcpErrorBoundary
+} from "../error-mapper.js";
+import { jsonResponse } from "../responses.js";
 
 export function registerSourceTools(
   server: McpServer,
@@ -51,7 +58,7 @@ export function registerSourceTools(
       })
     },
 
-    async ({ scope, name }) => {
+    async ({ scope, name }) => withMcpErrorBoundary(async () => {
       const { config } = await loadPcwConfig(contextRoot);
 
       let logicalName: string | null = null;
@@ -64,10 +71,11 @@ export function registerSourceTools(
         logicalName = resolvedSharedContext?.name ?? null;
 
         if (!logicalName) {
-          return jsonErrorResponse({
-            error: `Shared context '${name}' is not defined`,
-            available: Object.keys(sharedConfig)
-          });
+          return logicalContextNotFoundErrorResponse(
+            "shared",
+            `Shared context '${name}' is not defined`,
+            Object.keys(sharedConfig)
+          );
         }
 
         configuredPath = resolvedSharedContext?.config.path ?? null;
@@ -80,26 +88,27 @@ export function registerSourceTools(
         logicalName = resolvedWorkstream?.name ?? null;
 
         if (!logicalName) {
-          return jsonErrorResponse({
-            error: `Workstream '${name}' is not defined`,
-            available: Object.keys(workstreamsConfig)
-          });
+          return logicalContextNotFoundErrorResponse(
+            "workstream",
+            `Workstream '${name}' is not defined`,
+            Object.keys(workstreamsConfig)
+          );
         }
 
         configuredPath =
           resolvedWorkstream?.config.context?.path ?? null;
 
         if (!configuredPath) {
-          return jsonErrorResponse({
-            error: `Workstream '${logicalName}' has no specialized context configured`
-          });
+          return contextNotConfiguredErrorResponse(
+            `Workstream '${logicalName}' has no specialized context configured`
+          );
         }
       }
 
       if (!configuredPath) {
-        return jsonErrorResponse({
-          error: `No context path configured for '${name}'`
-        });
+        return contextNotConfiguredErrorResponse(
+          `No context path configured for '${name}'`
+        );
       }
 
       const absolutePath = resolveConfiguredPath(contextRoot, configuredPath);
@@ -115,13 +124,14 @@ export function registerSourceTools(
           sourceCount: listing.sources.length,
           sources: listing.sources
         });
-      } catch {
-        return jsonErrorResponse({
-          error: `Could not list sources for '${name}'`,
-          path: absolutePath
-        });
+      } catch (error) {
+        return sourceListingErrorResponse(
+          `Could not list sources for '${name}'`,
+          absolutePath,
+          error
+        );
       }
-    }
+    })
   );
 
   server.registerTool(
@@ -144,7 +154,7 @@ export function registerSourceTools(
       })
     },
 
-    async ({ scope, name, source }) => {
+    async ({ scope, name, source }) => withMcpErrorBoundary(async () => {
       const { config } = await loadPcwConfig(contextRoot);
 
       let logicalName: string | null = null;
@@ -157,10 +167,11 @@ export function registerSourceTools(
         logicalName = resolvedSharedContext?.name ?? null;
 
         if (!logicalName) {
-          return jsonErrorResponse({
-            error: `Shared context '${name}' is not defined`,
-            available: Object.keys(sharedConfig)
-          });
+          return logicalContextNotFoundErrorResponse(
+            "shared",
+            `Shared context '${name}' is not defined`,
+            Object.keys(sharedConfig)
+          );
         }
 
         configuredPath = resolvedSharedContext?.config.path ?? null;
@@ -173,10 +184,11 @@ export function registerSourceTools(
         logicalName = resolvedWorkstream?.name ?? null;
 
         if (!logicalName) {
-          return jsonErrorResponse({
-            error: `Workstream '${name}' is not defined`,
-            available: Object.keys(workstreamsConfig)
-          });
+          return logicalContextNotFoundErrorResponse(
+            "workstream",
+            `Workstream '${name}' is not defined`,
+            Object.keys(workstreamsConfig)
+          );
         }
 
         configuredPath =
@@ -184,17 +196,16 @@ export function registerSourceTools(
       }
 
       if (!configuredPath) {
-        return jsonErrorResponse({
-          error: `No readable context path configured for '${name}'`
-        });
+        return contextNotConfiguredErrorResponse(
+          `No readable context path configured for '${name}'`
+        );
       }
 
       if (!isTextSourcePath(source)) {
-        return jsonErrorResponse({
-          error:
-            "This tool only supports Markdown (.md) and plain-text (.txt) sources",
+        return sourceTypeErrorResponse(
+          "This tool only supports Markdown (.md) and plain-text (.txt) sources",
           source
-        });
+        );
       }
 
       try {
@@ -220,7 +231,7 @@ export function registerSourceTools(
           error
         );
       }
-    }
+    })
   );
 
   server.registerTool(
@@ -243,7 +254,7 @@ export function registerSourceTools(
       })
     },
 
-    async ({ scope, name, source }) => {
+    async ({ scope, name, source }) => withMcpErrorBoundary(async () => {
       const { config } = await loadPcwConfig(contextRoot);
 
       let logicalName: string | null = null;
@@ -256,10 +267,11 @@ export function registerSourceTools(
         logicalName = resolvedSharedContext?.name ?? null;
 
         if (!logicalName) {
-          return jsonErrorResponse({
-            error: `Shared context '${name}' is not defined`,
-            available: Object.keys(sharedConfig)
-          });
+          return logicalContextNotFoundErrorResponse(
+            "shared",
+            `Shared context '${name}' is not defined`,
+            Object.keys(sharedConfig)
+          );
         }
 
         configuredPath = resolvedSharedContext?.config.path ?? null;
@@ -272,10 +284,11 @@ export function registerSourceTools(
         logicalName = resolvedWorkstream?.name ?? null;
 
         if (!logicalName) {
-          return jsonErrorResponse({
-            error: `Workstream '${name}' is not defined`,
-            available: Object.keys(workstreamsConfig)
-          });
+          return logicalContextNotFoundErrorResponse(
+            "workstream",
+            `Workstream '${name}' is not defined`,
+            Object.keys(workstreamsConfig)
+          );
         }
 
         configuredPath =
@@ -283,16 +296,16 @@ export function registerSourceTools(
       }
 
       if (!configuredPath) {
-        return jsonErrorResponse({
-          error: `No context path configured for '${name}'`
-        });
+        return contextNotConfiguredErrorResponse(
+          `No context path configured for '${name}'`
+        );
       }
 
       if (!isDocxSourcePath(source)) {
-        return jsonErrorResponse({
-          error: "This tool only supports DOCX files",
+        return sourceTypeErrorResponse(
+          "This tool only supports DOCX files",
           source
-        });
+        );
       }
 
       try {
@@ -319,7 +332,7 @@ export function registerSourceTools(
           error
         );
       }
-    }
+    })
   );
 
   server.registerTool(
@@ -342,7 +355,7 @@ export function registerSourceTools(
       })
     },
 
-    async ({ scope, name, source }) => {
+    async ({ scope, name, source }) => withMcpErrorBoundary(async () => {
       const { config } = await loadPcwConfig(contextRoot);
 
       let logicalName: string | null = null;
@@ -355,10 +368,11 @@ export function registerSourceTools(
         logicalName = resolvedSharedContext?.name ?? null;
 
         if (!logicalName) {
-          return jsonErrorResponse({
-            error: `Shared context '${name}' is not defined`,
-            available: Object.keys(sharedConfig)
-          });
+          return logicalContextNotFoundErrorResponse(
+            "shared",
+            `Shared context '${name}' is not defined`,
+            Object.keys(sharedConfig)
+          );
         }
 
         configuredPath = resolvedSharedContext?.config.path ?? null;
@@ -371,10 +385,11 @@ export function registerSourceTools(
         logicalName = resolvedWorkstream?.name ?? null;
 
         if (!logicalName) {
-          return jsonErrorResponse({
-            error: `Workstream '${name}' is not defined`,
-            available: Object.keys(workstreamsConfig)
-          });
+          return logicalContextNotFoundErrorResponse(
+            "workstream",
+            `Workstream '${name}' is not defined`,
+            Object.keys(workstreamsConfig)
+          );
         }
 
         configuredPath =
@@ -382,16 +397,16 @@ export function registerSourceTools(
       }
 
       if (!configuredPath) {
-        return jsonErrorResponse({
-          error: `No context path configured for '${name}'`
-        });
+        return contextNotConfiguredErrorResponse(
+          `No context path configured for '${name}'`
+        );
       }
 
       if (!isPdfSourcePath(source)) {
-        return jsonErrorResponse({
-          error: "This tool only supports PDF files",
+        return sourceTypeErrorResponse(
+          "This tool only supports PDF files",
           source
-        });
+        );
       }
 
       try {
@@ -417,6 +432,6 @@ export function registerSourceTools(
           error
         );
       }
-    }
+    })
   );
 }

@@ -18,6 +18,7 @@ test("unknown shared context preserves the current MCP error payload", async () 
     }>(client, "list_sources", { scope: "shared", name: "MISSING" });
 
     assert.equal(response.isError, true);
+    assert.equal((response.data as { code: string }).code, "PCW_CONTEXT_NOT_CONFIGURED");
     assert.equal(response.data.error, "Shared context 'MISSING' is not defined");
     assert.deepEqual(response.data.available, ["general", "organization"]);
   });
@@ -32,6 +33,7 @@ test("missing source preserves its tool-specific MCP error", async () => {
     );
 
     assert.equal(response.isError, true);
+    assert.equal((response.data as { code: string }).code, "PCW_SOURCE_ERROR");
     assert.equal(response.data.error, "Could not read source 'missing.md'");
     assert.equal(typeof response.data.details, "string");
   });
@@ -46,6 +48,7 @@ test("unsupported text extension preserves source diagnostics", async () => {
     );
 
     assert.equal(response.isError, true);
+    assert.equal((response.data as { code: string }).code, "PCW_SOURCE_ERROR");
     assert.equal(
       response.data.error,
       "This tool only supports Markdown (.md) and plain-text (.txt) sources"
@@ -68,6 +71,7 @@ test("missing inventory configuration preserves its MCP error", async () => {
       const response = await callTool<{ error: string }>(client, "get_inventory");
 
       assert.equal(response.isError, true);
+      assert.equal((response.data as { code: string }).code, "PCW_INVENTORY_ERROR");
       assert.equal(
         response.data.error,
         "No inventory document is configured in pcw.yml"
@@ -90,6 +94,7 @@ test("workstream without continuity preserves its MCP error", async () => {
       );
 
       assert.equal(response.isError, true);
+      assert.equal((response.data as { code: string }).code, "PCW_CONTINUITY_NOT_CONFIGURED");
       assert.equal(
         response.data.error,
         "Workstream 'EMPTY' has no continuity document configured"
@@ -120,6 +125,7 @@ test("non-Markdown continuity preserves path diagnostics", async () => {
       );
 
       assert.equal(response.isError, true);
+      assert.equal((response.data as { code: string }).code, "PCW_CONTINUITY_INVALID");
       assert.equal(
         response.data.error,
         "Continuity documents must be Markdown (.md)"
@@ -156,6 +162,7 @@ test("unsafe history workstream preserves the controlled MCP error", async () =>
       );
 
       assert.equal(response.isError, true);
+      assert.equal((response.data as { code: string }).code, "PCW_CONTINUITY_INVALID");
       assert.equal(
         response.data.error,
         "Could not update continuity for '../ESCAPE'"

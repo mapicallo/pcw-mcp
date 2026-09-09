@@ -1,13 +1,14 @@
 {
   "name": "pcw-mcp",
-  "version": "0.2.0-dev.2",
+  "version": "0.2.0-beta.1",
   "description": "Local-first MCP server for Persistent Context Workstreams",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts tests/mcp-registration.test.ts tests/server-composition.test.ts tests/public-contract.test.ts tests/runtime.test.ts tests/package.test.ts tests/public-example.test.ts",
-    "test:package-install": "npm run build && tsx --test tests/package-install.test.ts"
+    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts tests/error-codes.test.ts tests/mcp-registration.test.ts tests/server-composition.test.ts tests/public-contract.test.ts tests/runtime.test.ts tests/package.test.ts tests/public-example.test.ts",
+    "test:package-install": "npm run build && tsx --test tests/package-install.test.ts",
+    "verify:beta": "node scripts/verify-beta.mjs"
   },
   "keywords": [],
   "author": "",
@@ -44,5 +45,9 @@
     "docs/private-beta.md",
     "templates",
     "examples/sample-context"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mapicallo/pcw-mcp.git"
+  }
 }

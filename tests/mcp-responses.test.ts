@@ -54,6 +54,7 @@ test("known workstream error preserves available workstreams", () => {
   );
 
   assert.deepEqual(JSON.parse(responseText(response)), {
+    code: "PCW_WORKSTREAM_NOT_FOUND",
     error: "Workstream 'MISSING' is not defined",
     availableWorkstreams: ["BACKEND"]
   });
@@ -67,6 +68,7 @@ test("stale continuity error preserves all concurrency fields", () => {
   const payload = JSON.parse(responseText(response));
 
   assert.deepEqual(payload, {
+    code: "PCW_CONTINUITY_STALE",
     error: "Continuity has changed since it was read",
     workstream: "BACKEND",
     expectedSha256: "a".repeat(64),

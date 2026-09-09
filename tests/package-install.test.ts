@@ -30,7 +30,6 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const publicExampleRoot = join(repositoryRoot, "examples", "sample-context");
 
 const expectedToolNames = [
-  "hello",
   "get_project_info",
   "list_workstreams",
   "get_workstream_info",
@@ -52,6 +51,7 @@ type PackResult = {
 
 type InstalledManifest = {
   main?: string;
+  version?: string;
   dependencies?: Record<string, string>;
 };
 
@@ -224,6 +224,7 @@ test("packed PCW installs and operates independently from repository sources", a
       await readFile(join(installedPackageRoot, "package.json"), "utf8")
     ) as InstalledManifest;
     assert.equal(installedManifest.main, "dist/server.js");
+    assert.equal(installedManifest.version, PCW_SOFTWARE_VERSION);
     assert.equal(installedManifest.dependencies?.tsx, undefined);
     await access(serverEntry);
     await assert.rejects(access(join(installedPackageRoot, "src")));
@@ -232,6 +233,28 @@ test("packed PCW installs and operates independently from repository sources", a
     await assert.rejects(
       access(join(installationRoot, "node_modules", "typescript"))
     );
+
+    const installedFiles = await snapshotDirectory(installedPackageRoot);
+    const installedPaths = [...installedFiles.keys()];
+    assert.equal(installedPaths.some((path) => path.startsWith("src/")), false);
+    assert.equal(installedPaths.some((path) => path.startsWith("tests/")), false);
+    assert.equal(installedPaths.includes("CONTINUITY.md"), false);
+    assert.equal(installedPaths.some((path) => path.startsWith(".git/")), false);
+
+    const forbiddenContent = [
+      /C:\\rmms-context/i,
+      /C:\\code\\pcw-mcp/i,
+      /\bRMMS\b/i,
+      /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+      /github_pat_[A-Za-z0-9_]+/,
+      /ghp_[A-Za-z0-9]+/
+    ];
+    for (const relativePath of installedPaths) {
+      const content = await readFile(join(installedPackageRoot, relativePath), "utf8");
+      for (const pattern of forbiddenContent) {
+        assert.doesNotMatch(content, pattern, `forbidden content in ${relativePath}`);
+      }
+    }
 
     const help = runInstalledEntrypoint(serverEntry, ["--help"]);
     assert.equal(help.status, 0);
@@ -307,6 +330,7 @@ test("packed PCW installs and operates independently from repository sources", a
         assert.match(update.data.backupPath, /[\\/].pcw[\\/]history[\\/]BACKEND[\\/]/);
 
         const stale = await callTool<{
+          code: string;
           currentSha256: string;
           action: string;
         }>(client, "update_continuity", {
@@ -320,6 +344,7 @@ test("packed PCW installs and operates independently from repository sources", a
         }>(client, "get_continuity", { name: "BACKEND" });
 
         assert.equal(stale.isError, true);
+        assert.equal(stale.data.code, "PCW_CONTINUITY_STALE");
         assert.equal(stale.data.currentSha256, update.data.newSha256);
         assert.match(stale.data.action, /get_continuity again/);
         assert.equal(after.data.continuity, winningContent);

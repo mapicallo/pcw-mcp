@@ -7,8 +7,13 @@ import {
   resolveInventoryPath,
   searchInventory
 } from "../../inventory/inventory-service.js";
-import { inventoryReadErrorResponse } from "../error-mapper.js";
-import { jsonErrorResponse, jsonResponse } from "../responses.js";
+import { PCW_ERROR_CODES } from "../error-codes.js";
+import {
+  inventoryReadErrorResponse,
+  inventorySearchErrorResponse,
+  withMcpErrorBoundary
+} from "../error-mapper.js";
+import { codedErrorResponse, jsonResponse } from "../responses.js";
 
 export function registerInventoryTools(
   server: McpServer,
@@ -21,13 +26,12 @@ export function registerInventoryTools(
         "Reads the project document inventory configured in pcw.yml. The inventory acts as the semantic map of the available context sources.",
       inputSchema: z.object({})
     },
-    async () => {
+    async () => withMcpErrorBoundary(async () => {
       const { config } = await loadPcwConfig(contextRoot);
-
       const inventoryPath = config?.inventory?.path ?? null;
 
       if (!inventoryPath) {
-        return jsonErrorResponse({
+        return codedErrorResponse(PCW_ERROR_CODES.INVENTORY_ERROR, {
           error: "No inventory document is configured in pcw.yml"
         });
       }
@@ -35,11 +39,7 @@ export function registerInventoryTools(
       const absolutePath = resolveInventoryPath(contextRoot, inventoryPath);
 
       try {
-        const document = await loadInventoryDocument(
-          contextRoot,
-          inventoryPath
-        );
-
+        const document = await loadInventoryDocument(contextRoot, inventoryPath);
         return jsonResponse({
           path: document.configuredPath,
           absolutePath: document.absolutePath,
@@ -50,7 +50,7 @@ export function registerInventoryTools(
       } catch (error) {
         return inventoryReadErrorResponse(error, absolutePath);
       }
-    }
+    })
   );
 
   server.registerTool(
@@ -59,28 +59,17 @@ export function registerInventoryTools(
       description:
         "Searches the semantic document inventory and returns only the relevant inventory sections instead of loading the complete inventory",
       inputSchema: z.object({
-        query: z
-          .string()
-          .min(1)
-          .describe("Text to search for in the document inventory"),
-
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(20)
-          .optional()
+        query: z.string().min(1).describe("Text to search for in the document inventory"),
+        limit: z.number().int().min(1).max(20).optional()
           .describe("Maximum number of matching sections to return")
       })
     },
-
-    async ({ query, limit }) => {
+    async ({ query, limit }) => withMcpErrorBoundary(async () => {
       const { config } = await loadPcwConfig(contextRoot);
-
       const inventoryPath = config?.inventory?.path ?? null;
 
       if (!inventoryPath) {
-        return jsonErrorResponse({
+        return codedErrorResponse(PCW_ERROR_CODES.INVENTORY_ERROR, {
           error: "No inventory document is configured in pcw.yml"
         });
       }
@@ -94,19 +83,15 @@ export function registerInventoryTools(
           query,
           limit
         );
-
         return jsonResponse({
           query,
           inventory: result.document.configuredPath,
           matchCount: result.matches.length,
           matches: result.matches
         });
-      } catch {
-        return jsonErrorResponse({
-          error: "Could not search the configured inventory",
-          path: absolutePath
-        });
+      } catch (error) {
+        return inventorySearchErrorResponse(error, absolutePath);
       }
-    }
+    })
   );
 }
