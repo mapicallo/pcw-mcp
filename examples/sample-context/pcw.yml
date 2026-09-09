@@ -1,0 +1,24 @@
+version: 1
+
+project:
+  id: example-taskboard
+  name: Example Taskboard
+
+inventory:
+  path: catalog/inventory.md
+
+shared_context:
+  general:
+    path: reference/product
+  organization:
+    path: reference/people
+
+workstreams:
+  BACKEND:
+    context:
+      path: delivery/api
+    continuity:
+      path: continuity/BACKEND.md
+  OPERATIONS:
+    continuity:
+      path: continuity/OPERATIONS.md

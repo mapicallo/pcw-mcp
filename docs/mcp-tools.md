@@ -26,7 +26,7 @@ Input: `name: string`.
 
 Result: plain text `Hello <name>. PCW MCP is running correctly.`
 
-Recommendation: keep during the development line, but remove before first beta with explicit approval because MCP initialization already provides a health check.
+Status: development compatibility tool; its decision is pending before beta contract freeze. New integrations should not depend on it because MCP initialization already provides a health check.
 
 ### get_project_info
 

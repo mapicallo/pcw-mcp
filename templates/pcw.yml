@@ -1,0 +1,23 @@
+version: 1
+
+project:
+  id: <project-id>
+  name: <Project Name>
+
+inventory:
+  path: inventory.md
+
+shared_context:
+  general:
+    path: knowledge/general
+
+workstreams:
+  WORKSTREAM:
+    context:
+      path: knowledge/workstream
+    continuity:
+      path: continuity/WORKSTREAM.md
+
+  CONTINUITY_ONLY:
+    continuity:
+      path: continuity/CONTINUITY_ONLY.md

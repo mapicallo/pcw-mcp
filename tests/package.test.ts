@@ -17,7 +17,10 @@ const expectedFiles = [
   "docs/pcw-yml.md",
   "docs/pcw-model.md",
   "docs/runtime.md",
-  "docs/security.md"
+  "docs/security.md",
+  "docs/private-beta.md",
+  "templates",
+  "examples/sample-context"
 ];
 
 type PackageManifest = {
@@ -61,6 +64,12 @@ test("npm pack dry-run excludes development and private-beta state", async () =>
   assert.ok(paths.includes("dist/server.js"));
   assert.ok(paths.includes("README.md"));
   assert.ok(paths.includes("docs/runtime.md"));
+  assert.ok(paths.includes("docs/private-beta.md"));
+  assert.ok(paths.includes("templates/pcw.yml"));
+  assert.ok(paths.includes("templates/continuity.md"));
+  assert.ok(paths.includes("templates/inventory.md"));
+  assert.ok(paths.includes("examples/sample-context/pcw.yml"));
+  assert.ok(paths.includes("examples/sample-context/catalog/inventory.md"));
   assert.equal(paths.some((path) => path.startsWith("src/")), false);
   assert.equal(paths.some((path) => path.startsWith("tests/")), false);
   assert.equal(paths.includes("CONTINUITY.md"), false);

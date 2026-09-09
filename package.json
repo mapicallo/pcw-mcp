@@ -1,12 +1,13 @@
 {
   "name": "pcw-mcp",
-  "version": "0.2.0-dev.1",
+  "version": "0.2.0-dev.2",
   "description": "Local-first MCP server for Persistent Context Workstreams",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts tests/mcp-registration.test.ts tests/server-composition.test.ts tests/public-contract.test.ts tests/runtime.test.ts tests/package.test.ts"
+    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts tests/mcp-registration.test.ts tests/server-composition.test.ts tests/public-contract.test.ts tests/runtime.test.ts tests/package.test.ts tests/public-example.test.ts",
+    "test:package-install": "npm run build && tsx --test tests/package-install.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +17,6 @@
     "@modelcontextprotocol/server": "^2.0.0",
     "mammoth": "^1.12.2",
     "pdf-parse": "^2.4.5",
-    "tsx": "^4.23.13",
     "write-file-atomic": "^7.0.1",
     "yaml": "^2.9.0",
     "zod": "^4.5.4"
@@ -25,6 +25,7 @@
     "@modelcontextprotocol/client": "^2.0.0",
     "@types/node": "^26.4.1",
     "@types/write-file-atomic": "^4.0.3",
+    "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   },
   "engines": {
@@ -39,6 +40,9 @@
     "docs/pcw-yml.md",
     "docs/pcw-model.md",
     "docs/runtime.md",
-    "docs/security.md"
+    "docs/security.md",
+    "docs/private-beta.md",
+    "templates",
+    "examples/sample-context"
   ]
 }

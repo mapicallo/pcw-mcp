@@ -1071,3 +1071,81 @@ Deferred owner/contract decisions:
 Recommended Block 13: create and validate a small public synthetic starter context/template, perform a clean local-install smoke test from the allowlisted package, and close owner-approved beta decisions for licensing and `hello`. Do not publish, create a release tag, add transports, or reuse test fixtures as public examples without deliberate review.
 
 The final commit hash is reported in the Block 12 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 13 Validation
+
+Block 13 scope:
+
+```text
+Public starter context and packaged installation smoke test.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `feat: add PCW private beta starter context`.
+
+Software/package version:
+
+- advanced from `0.2.0-dev.1` to `0.2.0-dev.2` because the distributable package gained user-facing examples and templates;
+- `package.json` remains the software-version source of truth;
+- MCP metadata and packaged `--version` remain synchronized;
+- no release tag was created.
+
+Public onboarding assets:
+
+- `examples/sample-context/` is a fictional Example Taskboard project, separate from implementation fixtures;
+- logical shared context `general` maps to `reference/product`;
+- logical shared context `organization` maps to `reference/people`;
+- `BACKEND` maps specialized context to `delivery/api` and has canonical continuity;
+- `OPERATIONS` has continuity without specialized context;
+- `catalog/inventory.md` is a compact semantic map for selective retrieval;
+- continuity documents are state checkpoints, not transcripts;
+- `templates/pcw.yml`, `templates/continuity.md`, and `templates/inventory.md` provide generic starting points.
+
+Package boundary:
+
+- allowlisted content is `dist/`, `README.md`, seven public documents, `templates/`, `examples/sample-context/`, and npm-required metadata;
+- TypeScript source, tests/fixtures, `CONTINUITY.md`, roadmap/POC notes, Git/IDE state, and private contexts remain excluded;
+- `tsx` moved from production dependencies to `devDependencies` after import review;
+- production dependencies are MCP server, Mammoth, PDF parser, atomic writer, YAML, and Zod;
+- `main` remains `dist/server.js` and `private: true` remains enabled.
+
+Packaged smoke-test architecture:
+
+- `tests/package-install.test.ts` creates the actual npm artifact under the OS temporary directory;
+- it creates a separate temporary installation, installs the tarball with `--omit=dev`, and uses the installed `node_modules/pcw-mcp/dist/server.js`;
+- it copies the public example to another temporary directory for continuity writes;
+- it verifies `--help`, `--version`, missing-root failure, environment and CLI startup, MCP initialization, exact 13-tool discovery, project/workstreams, inventory search, text reading, continuity reading, successful update, and stale-write rejection;
+- it proves the installed package has no `src`, tests, or installed `tsx` and does not use repository-relative runtime imports;
+- all tarballs, installations, copied contexts, and generated `.pcw/history` are removed during teardown;
+- a hash snapshot verifies the committed public sample remains unchanged.
+
+Validation results:
+
+```text
+npm run build: passed
+previous suite: 139 passed, 0 failed
+new public-example tests: 2 passed, 0 failed
+standard suite total: 141 passed, 0 failed (two final runs)
+packaged clean-install smoke: 1 passed, 0 failed
+total automated tests across both commands: 142 passed, 0 failed
+npm pack --dry-run: passed
+artifact: pcw-mcp-0.2.0-dev.2.tgz
+artifact size: 25,338 bytes
+unpacked size: 99,545 bytes
+package files: 45
+```
+
+The distributable-only privacy scan found no private context path, original repository path, corporate identifier, credential pattern, test-only path, or secret. No `.tgz` remains in the repository.
+
+Node 22 is still unavailable locally and was not runtime-tested. Package and smoke tests ran on Node 24.3.0. The `>=22.9.0` declaration remains dependency-engine based.
+
+Deferred owner/contract decisions:
+
+- `ISC` remains declared, but there is no LICENSE file and owner confirmation is required before handoff;
+- `hello` remains a development compatibility tool pending beta contract freeze, and new users are told not to depend on it;
+- machine-readable error codes remain deferred;
+- `absolutePath` and `backupPath` remain unchanged for local beta and need review before remote operation;
+- author/repository package metadata remains incomplete.
+
+Recommended Block 14: private-beta contract freeze and handoff readiness. Obtain owner decisions for license and `hello`, decide the minimal machine-readable error-code policy, add Node 22 CI/runtime verification, complete package author/repository metadata, and perform a final clean handoff rehearsal from the package plus public sample. Do not publish, tag a release, add transports, or create an installer without explicit approval.
+
+The final commit hash is reported in the Block 13 completion response and can be recovered with `git log -1 --oneline`.

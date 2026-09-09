@@ -81,7 +81,9 @@ The private-beta npm package allowlist contains:
 
 - `dist/`;
 - `README.md`;
-- `docs/public-contract.md`, `docs/mcp-tools.md`, `docs/pcw-yml.md`, `docs/pcw-model.md`, `docs/runtime.md`, and `docs/security.md`;
+- the public contract, MCP tools, `pcw.yml`, PCW model, runtime, security, and private-beta guides;
+- `templates/`;
+- `examples/sample-context/`;
 - npm-required `package.json` metadata.
 
 It excludes source, tests and fixtures, project continuity, Git/IDE state, temporary files, and private contexts. The package is marked `private: true` to prevent accidental npm publication. This still permits local `npm pack --dry-run` inspection.

@@ -1,6 +1,6 @@
 # PCW v0.2 Public Contract Baseline
 
-This document defines the externally observable contract of the PCW-MCP v0.2 development line. The current software version is `0.2.0-dev.1`; this is a SemVer prerelease, not a release or stability claim.
+This document defines the externally observable contract of the PCW-MCP v0.2 development line. The current software version is `0.2.0-dev.2`; this is a SemVer prerelease, not a release or stability claim.
 
 Detailed tool and configuration contracts live in [MCP tools](mcp-tools.md) and [pcw.yml](pcw-yml.md).
 
@@ -20,7 +20,7 @@ Module paths, service classes, helper functions, source layout, temporary filena
 
 ## Identity And Versioning
 
-The MCP server name is `pcw-mcp`. The package version in `package.json` is the single runtime source of the advertised MCP version. The current value is `0.2.0-dev.1`.
+The MCP server name is `pcw-mcp`. The package version in `package.json` is the single runtime source of the advertised MCP version. The current value is `0.2.0-dev.2`.
 
 Software version and `pcw.yml` schema version are separate:
 
@@ -119,6 +119,6 @@ The v0.2 foundation does not provide remote synchronization, distributed locking
 
 ## Distribution Metadata
 
-`package.json` declares the package name, prerelease version, description, ESM mode, scripts, `dist/server.js` main entry, Node engine, and `ISC` license value. The package is currently private and allowlists only `dist/`, `README.md`, and six public contract/runtime/security documents in addition to npm-required metadata. This prevents accidental publication and excludes source, tests, fixtures, and project continuity from a future local package.
+`package.json` declares the package name, prerelease version, description, ESM mode, scripts, `dist/server.js` main entry, Node engine, and `ISC` license value. The package is currently private and allowlists `dist/`, `README.md`, public documentation, `templates/`, and `examples/sample-context/` in addition to npm-required metadata. This prevents accidental publication and excludes source, tests, fixtures, and project continuity from a local package.
 
-No standalone LICENSE file currently exists. The owner must confirm the intended license and add its text before external distribution. Author/repository metadata, a public starter context, final packaging, and publication remain future work.
+No standalone LICENSE file currently exists. The owner must confirm the intended license and add its text before external distribution. Author/repository metadata, final packaging, and publication remain future work.

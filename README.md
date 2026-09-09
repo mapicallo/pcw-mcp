@@ -16,7 +16,7 @@ PCW is intended to be vendor/provider neutral. The persistent state does not bel
 
 PCW-MCP v0.1 is a validated functional POC. It has demonstrated local stdio MCP access, selective persistent context retrieval, continuity versioning, controlled continuity writes, history backup, and optimistic concurrency.
 
-This project is not production-ready. The current software version is `0.2.0-dev.1`; v0.2 work is defining and validating a maintainable public-contract foundation before private beta.
+This project is not production-ready. The current software version is `0.2.0-dev.2`; v0.2 work is validating a local private-beta candidate and its public onboarding context.
 
 ## Current Stack
 
@@ -35,6 +35,7 @@ The POC is local-first and does not require a backend, account, database, cloud 
 ## Documentation
 
 - [Public contract baseline](docs/public-contract.md)
+- [Private beta guide](docs/private-beta.md)
 - [Local runtime and distribution](docs/runtime.md)
 - [MCP tool contract](docs/mcp-tools.md)
 - [pcw.yml contract](docs/pcw-yml.md)
@@ -58,7 +59,25 @@ Run the automated characterization suite:
 npm test
 ```
 
-The tests start the compiled MCP stdio server through the official MCP client. They use only the synthetic context under `tests/fixtures/sample-context` and disposable copies in the operating system temporary directory. They do not require or inspect the private RMMS context.
+Run the slower clean-install smoke test, which packs and installs PCW entirely under the operating system temporary directory:
+
+```text
+npm run test:package-install
+```
+
+The tests start the compiled MCP stdio server through the official MCP client. They use only synthetic contexts and disposable copies in the operating system temporary directory; no private context is required.
+
+## Quick Start: Private Beta
+
+1. Build or obtain the local PCW-MCP package.
+2. Copy `examples/sample-context` to a user-owned context directory, or start from `templates/`.
+3. Set `PCW_CONTEXT_ROOT=<path>` or pass `--context-root <path>`.
+4. Start `node dist/server.js` and configure it as a stdio MCP server.
+5. Ask: `Use PCW to list the available workstreams.`
+6. Continue with: `Use PCW to continue the BACKEND workstream. Reconstruct its current state before modifying anything.`
+7. Before ending the session, read the latest continuity SHA and use `update_continuity` to replace the complete checkpoint.
+
+The sample is a fictional Example Taskboard context. `BACKEND` has specialized context and continuity; `OPERATIONS` has continuity only. The semantic inventory demonstrates how to search first and read only relevant sources. See the [private beta guide](docs/private-beta.md) for generic Codex and Cursor configurations and current limitations.
 
 ## Local runtime
 
@@ -79,6 +98,7 @@ node dist/server.js
 If neither source supplies a non-empty root, startup fails. The selected root must exist, be a directory, and contain a `pcw.yml` file. Use `node dist/server.js --help` for usage or `--version` for the package/MCP version.
 
 Stdio is the only implemented MCP transport. Normal runtime stdout is reserved exclusively for MCP protocol messages. See [local runtime and client configuration](docs/runtime.md) for generic Codex and Cursor examples.
+
 ## Source retrieval
 
 PCW keeps retrieval selective and on demand:
