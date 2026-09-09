@@ -32,7 +32,7 @@ Run `node dist/server.js`. Stdio is the only transport. Context-root precedence 
 2. `PCW_CONTEXT_ROOT`;
 3. startup failure.
 
-The root must exist, be a directory, and contain a `pcw.yml` file. The declared Node engine is `>=22.9.0`. CI is configured for Node 22 and 24; a Node version is considered verified only after its job succeeds.
+The root must exist, be a directory, and contain a `pcw.yml` file. The declared Node engine is `>=22.9.0`. GitHub Actions has successfully run the full suite on Node 22 and Node 24; the Node 22 job also passed the packaged-install smoke test.
 
 ## MCP Tools
 

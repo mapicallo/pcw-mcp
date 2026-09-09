@@ -8,7 +8,7 @@ PCW-MCP `0.2.0-beta.1` is a local-only private-beta release candidate. It is not
 - the locally supplied PCW-MCP package;
 - a PCW context containing `pcw.yml`.
 
-CI is configured for Node 22 and 24. Local release-candidate validation currently runs on Node 24; consult the CI result before claiming Node 22 validation.
+CI has passed on Node 22 and Node 24. The Node 22 job also completed the packaged clean-install smoke test.
 
 ## Package Contents
 
@@ -99,7 +99,7 @@ This compiles, runs the standard suite, creates and clean-installs a temporary p
 
 - `absolutePath` and `backupPath` remain visible for local beta operation.
 - There is no HTTP/SSE transport, authentication, installer, global CLI, remote synchronization, OCR, or automatic conflict merge.
-- Node 22 is not verified until its CI job succeeds.
+- CI currently validates Node 22 and Node 24; compatibility below the declared `>=22.9.0` minimum is unsupported.
 - `ISC` remains in metadata, but licensing has not been approved and no `LICENSE` file exists.
 
 External handoff is blocked on owner confirmation of licensing terms. Local technical validation may continue.

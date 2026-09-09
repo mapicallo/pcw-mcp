@@ -1189,7 +1189,7 @@ Release-candidate verification and package boundary:
 - the smoke installs the actual `pcw-mcp-0.2.0-beta.1.tgz` in an external temporary directory;
 - installed `--version` is `0.2.0-beta.1` and MCP exposes exactly 12 tools;
 - packaged project/workstream discovery, inventory search, text reading, continuity read/update, and stale rejection pass;
-- final artifact size was 25,995 bytes, unpacked size 102,885 bytes, with 46 files;
+- final artifact size was 25,987 bytes, unpacked size 102,929 bytes, with 46 files;
 - installed-package privacy scanning rejects private/local paths, the private project identifier, credential patterns, `src`, tests, `CONTINUITY.md`, and Git metadata;
 - the temporary artifact, installation, copied context, and generated history are removed after validation; no `.tgz` is committed.
 
@@ -1198,7 +1198,7 @@ CI and metadata:
 - `.github/workflows/ci.yml` runs `npm ci`, build, and tests on Node 22.x and 24.x;
 - the packaged-install smoke runs on Node 22.x;
 - CI uses only repository synthetic fixtures and the public sample context;
-- Node 22 remains `configured, awaiting external CI result` until a real job succeeds;
+- GitHub Actions run `34301278733` passed on Node 22.x and Node 24.x; the Node 22 job also passed the packaged-install smoke;
 - credential-free repository metadata is derived from `origin`: `https://github.com/mapicallo/pcw-mcp`;
 - author metadata remains unset because it has not been established.
 
@@ -1210,6 +1210,6 @@ Owner blocker:
 - external handoff remains blocked on owner confirmation of licensing terms;
 - no package publication, GitHub Release, release tag, installer, or new transport was created.
 
-Recommended Block 15: resolve the owner license decision, require successful Node 22/24 CI evidence, and perform the explicitly approved first-tester handoff/release-candidate delivery. Add the chosen LICENSE only after approval, then decide whether to create a beta tag or GitHub prerelease and how to deliver the already validated package. Do not publish to npm, add an installer, or add another transport without separate approval.
+Recommended Block 15: resolve the owner license decision and perform the explicitly approved first-tester handoff/release-candidate delivery. Node 22/24 CI evidence is now green. Add the chosen LICENSE only after approval, then decide whether to create a beta tag or GitHub prerelease and how to deliver the already validated package. Do not publish to npm, add an installer, or add another transport without separate approval.
 
 The final Block 14 commit hash is reported in the completion response and can be recovered with `git log -1 --oneline`.
