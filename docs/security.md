@@ -6,6 +6,8 @@ The v0.2 foundation is not a complete sandbox or production security boundary. T
 
 ## Implemented Boundaries
 
+- PCW-MCP requires an explicit context root from `--context-root` or `PCW_CONTEXT_ROOT`; there is no developer-specific fallback.
+- Startup verifies that the selected root exists, is a directory, and contains a `pcw.yml` file before stdio starts.
 - PCW-MCP reads configuration from the selected PCW context root.
 - Every configured path used for filesystem access is resolved through the filesystem boundary and must remain inside that root.
 - Relative traversal and absolute paths outside the root are rejected with path-aware containment checks.

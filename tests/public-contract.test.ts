@@ -26,7 +26,7 @@ test("package version is valid SemVer and is the runtime software version", asyn
   assert.ok(typeof parsed === "object" && parsed !== null);
   const metadata = parsed as PackageMetadata;
   assert.equal(metadata.name, "pcw-mcp");
-  assert.equal(metadata.version, "0.2.0-dev.0");
+  assert.equal(metadata.version, "0.2.0-dev.1");
   assert.ok(typeof metadata.version === "string");
   assert.match(metadata.version, semverPattern);
   assert.equal(PCW_SOFTWARE_VERSION, metadata.version);

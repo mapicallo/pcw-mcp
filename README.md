@@ -16,7 +16,7 @@ PCW is intended to be vendor/provider neutral. The persistent state does not bel
 
 PCW-MCP v0.1 is a validated functional POC. It has demonstrated local stdio MCP access, selective persistent context retrieval, continuity versioning, controlled continuity writes, history backup, and optimistic concurrency.
 
-This project is not production-ready. The current software version is `0.2.0-dev.0`; v0.2 work is defining and validating a maintainable public-contract foundation before private beta.
+This project is not production-ready. The current software version is `0.2.0-dev.1`; v0.2 work is defining and validating a maintainable public-contract foundation before private beta.
 
 ## Current Stack
 
@@ -35,6 +35,7 @@ The POC is local-first and does not require a backend, account, database, cloud 
 ## Documentation
 
 - [Public contract baseline](docs/public-contract.md)
+- [Local runtime and distribution](docs/runtime.md)
 - [MCP tool contract](docs/mcp-tools.md)
 - [pcw.yml contract](docs/pcw-yml.md)
 - [PCW model](docs/pcw-model.md)
@@ -59,6 +60,25 @@ npm test
 
 The tests start the compiled MCP stdio server through the official MCP client. They use only the synthetic context under `tests/fixtures/sample-context` and disposable copies in the operating system temporary directory. They do not require or inspect the private RMMS context.
 
+## Local runtime
+
+Build first, then select a context root explicitly. The CLI value takes precedence over the environment:
+
+```text
+PCW_CONTEXT_ROOT=<path> node dist/server.js
+node dist/server.js --context-root <path>
+```
+
+On PowerShell, the environment form is:
+
+```powershell
+$env:PCW_CONTEXT_ROOT = "C:\Contexts\sample-project"
+node dist/server.js
+```
+
+If neither source supplies a non-empty root, startup fails. The selected root must exist, be a directory, and contain a `pcw.yml` file. Use `node dist/server.js --help` for usage or `--version` for the package/MCP version.
+
+Stdio is the only implemented MCP transport. Normal runtime stdout is reserved exclusively for MCP protocol messages. See [local runtime and client configuration](docs/runtime.md) for generic Codex and Cursor examples.
 ## Source retrieval
 
 PCW keeps retrieval selective and on demand:

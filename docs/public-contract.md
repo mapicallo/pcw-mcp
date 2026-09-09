@@ -1,6 +1,6 @@
 # PCW v0.2 Public Contract Baseline
 
-This document defines the externally observable contract of the PCW-MCP v0.2 development line. The current software version is `0.2.0-dev.0`; this is a SemVer prerelease, not a release or stability claim.
+This document defines the externally observable contract of the PCW-MCP v0.2 development line. The current software version is `0.2.0-dev.1`; this is a SemVer prerelease, not a release or stability claim.
 
 Detailed tool and configuration contracts live in [MCP tools](mcp-tools.md) and [pcw.yml](pcw-yml.md).
 
@@ -20,7 +20,7 @@ Module paths, service classes, helper functions, source layout, temporary filena
 
 ## Identity And Versioning
 
-The MCP server name is `pcw-mcp`. The package version in `package.json` is the single runtime source of the advertised MCP version. The current value is `0.2.0-dev.0`.
+The MCP server name is `pcw-mcp`. The package version in `package.json` is the single runtime source of the advertised MCP version. The current value is `0.2.0-dev.1`.
 
 Software version and `pcw.yml` schema version are separate:
 
@@ -37,9 +37,13 @@ The supported executable path remains:
 node dist/server.js
 ```
 
-Stdio is the only implemented transport. `PCW_CONTEXT_ROOT` selects the context root. If the variable is absent, the current legacy development fallback is `C:\rmms-context`.
+Stdio is the only implemented transport. The context root is selected explicitly with this precedence:
 
-That machine-specific fallback is compatibility behavior, not a public example or suitable distribution default. Before private beta, the recommendation is to require `PCW_CONTEXT_ROOT` and fail clearly when it is missing. CLI arguments and context discovery require separate design and are not current features.
+1. `--context-root <path>`;
+2. `PCW_CONTEXT_ROOT`;
+3. startup failure.
+
+Empty or whitespace-only values are not configured. Before MCP starts, PCW verifies that the selected root exists, is a directory, and contains a `pcw.yml` file. `--help` and `--version` exit without starting MCP. The former developer-specific fallback has been removed. See [local runtime](runtime.md).
 
 The declared Node engine is `>=22.9.0`. This satisfies the installed production dependencies' declared requirements and uses a supported LTS-generation baseline. The suite is currently verified on Node 24.3.0; Node 22.9.0 has not yet been exercised in CI.
 
@@ -115,4 +119,6 @@ The v0.2 foundation does not provide remote synchronization, distributed locking
 
 ## Distribution Metadata
 
-`package.json` declares the package name, prerelease version, description, ESM mode, scripts, `dist/server.js` main entry, Node engine, and `ISC` license value. No standalone LICENSE file currently exists. The owner must confirm the intended license and add its text before external distribution. Package file allowlisting, author/repository metadata, packaging, and publication remain future work.
+`package.json` declares the package name, prerelease version, description, ESM mode, scripts, `dist/server.js` main entry, Node engine, and `ISC` license value. The package is currently private and allowlists only `dist/`, `README.md`, and six public contract/runtime/security documents in addition to npm-required metadata. This prevents accidental publication and excludes source, tests, fixtures, and project continuity from a future local package.
+
+No standalone LICENSE file currently exists. The owner must confirm the intended license and add its text before external distribution. Author/repository metadata, a public starter context, final packaging, and publication remain future work.

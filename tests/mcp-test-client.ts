@@ -66,6 +66,43 @@ export async function withServer<T>(
   }
 }
 
+export async function withServerUsingCli<T>(
+  contextRoot: string,
+  environmentRoot: string,
+  run: (client: Client) => Promise<T>
+): Promise<T> {
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [serverEntry, "--context-root", contextRoot],
+    cwd: repositoryRoot,
+    env: {
+      ...getDefaultEnvironment(),
+      PCW_CONTEXT_ROOT: environmentRoot
+    },
+    stderr: "pipe"
+  });
+  const client = new Client({
+    name: "pcw-cli-runtime-tests",
+    version: "1.0.0"
+  });
+
+  let serverErrors = "";
+  transport.stderr?.on("data", (chunk) => {
+    serverErrors += chunk.toString();
+  });
+
+  try {
+    await client.connect(transport);
+    return await run(client);
+  } catch (error) {
+    if (serverErrors) {
+      throw new Error(`${String(error)}\nPCW server stderr:\n${serverErrors}`);
+    }
+    throw error;
+  } finally {
+    await client.close();
+  }
+}
 export async function callTool<T>(
   client: Client,
   name: string,

@@ -62,7 +62,7 @@ An optional path object may exist without `path`; tools then treat that resource
 
 ## Version Distinction
 
-The server software version is currently `0.2.0-dev.0` and comes from `package.json`.
+The server software version is currently `0.2.0-dev.1` and comes from `package.json`.
 
 The independent `pcw.yml.version` field remains optional and accepts strings or numbers because that is the validated POC behavior. A future schema migration should define a required canonical integer such as `version: 1`, but that would be an explicit compatibility change and is not part of this baseline.
 

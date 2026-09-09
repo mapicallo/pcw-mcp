@@ -11,10 +11,6 @@ import {
 
 import { createPcwMcpServer } from "../src/mcp/create-server.js";
 import {
-  DEFAULT_PCW_CONTEXT_ROOT,
-  resolveRuntimeContextRoot
-} from "../src/runtime/context-root.js";
-import {
   callTool,
   fixtureRoot,
   withServer,
@@ -102,7 +98,7 @@ test("server factory exposes the established tools and metadata in memory", asyn
     assert.equal(new Set(names).size, expectedToolNames.length);
     assert.deepEqual(connection.client.getServerVersion(), {
       name: "pcw-mcp",
-      version: "0.2.0-dev.0"
+      version: "0.2.0-dev.1"
     });
   } finally {
     await connection.close();
@@ -159,15 +155,6 @@ test("two server instances retain independent synthetic contexts", async () => {
       }
     });
   });
-});
-
-test("runtime context root preserves environment override and fallback semantics", () => {
-  assert.equal(
-    resolveRuntimeContextRoot({ PCW_CONTEXT_ROOT: "synthetic-root" }),
-    "synthetic-root"
-  );
-  assert.equal(resolveRuntimeContextRoot({}), DEFAULT_PCW_CONTEXT_ROOT);
-  assert.equal(resolveRuntimeContextRoot({ PCW_CONTEXT_ROOT: "" }), "");
 });
 
 test("compiled stdio entrypoint remains operational", async () => {

@@ -55,10 +55,10 @@ MCP is currently an integration layer. The durable memory belongs to the project
 There is a private local validation corpus at:
 
 ```text
-C:\rmms-context
+legacy developer-specific context root
 ```
 
-Do not copy files from `C:\rmms-context` into this repository.
+Do not copy files from `legacy developer-specific context root` into this repository.
 Do not include RMMS, Indra, or proprietary customer data in examples, tests, fixtures, docs, commits, or generated artifacts.
 
 Future automated tests and examples must use fabricated/sanitized sample data only.
@@ -92,7 +92,7 @@ Ignored/local files:
 - `.env*`
 - npm/yarn/pnpm debug logs
 
-`.cursor/mcp.json` exists locally and points Cursor to `node C:\code\pcw-mcp\dist\server.js` with `PCW_CONTEXT_ROOT=C:\rmms-context`, but it is intentionally ignored because it contains local/private paths.
+`.cursor/mcp.json` exists locally and points Cursor to `node C:\code\pcw-mcp\dist\server.js` with `PCW_CONTEXT_ROOT=legacy developer-specific context root`, but it is intentionally ignored because it contains local/private paths.
 
 ## Current Tech Stack
 
@@ -136,7 +136,7 @@ await server.connect(transport);
 Default PCW context root:
 
 ```text
-C:\rmms-context
+legacy developer-specific context root
 ```
 
 Override:
@@ -197,7 +197,7 @@ Validation performed:
 Repository hygiene finding:
 
 - no RMMS source documents, PDFs, DOCX files, credentials, API keys, passwords, or copied private context files were found in tracked repository content;
-- references to `C:\rmms-context` exist only as the current local default/configuration boundary and warnings not to commit that private corpus;
+- references to `legacy developer-specific context root` exist only as the current local default/configuration boundary and warnings not to commit that private corpus;
 - `.cursor/mcp.json` is local and ignored because it contains the private local context path.
 
 Important discrepancy:
@@ -888,7 +888,7 @@ Status: completed on branch `v0.2-foundation` in the commit carrying the message
 New modules:
 
 - `src/mcp/create-server.ts`: `createPcwMcpServer({ contextRoot })` constructs `McpServer`, preserves metadata, explicitly invokes the five registration APIs, and returns the unconnected server;
-- `src/runtime/context-root.ts`: pure `resolveRuntimeContextRoot(environment)` helper plus the unchanged `C:\rmms-context` fallback constant.
+- `src/runtime/context-root.ts`: pure `resolveRuntimeContextRoot(environment)` helper plus the unchanged `legacy developer-specific context root` fallback constant.
 
 Bootstrap responsibilities remaining in `src/server.ts`:
 
@@ -999,3 +999,75 @@ Intentionally deferred:
 Recommended Block 12: private-beta runtime and distribution readiness. Resolve the owner decisions for `hello` and licensing first; then remove the machine-specific fallback in favor of a required explicit context root, add the agreed small error-code set, verify the declared Node 22 baseline in CI or a clean environment, and prepare package contents without publishing or creating a release tag until final approval.
 
 The final commit hash is reported in the Block 11 completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 12 Validation
+
+Block 12 scope:
+
+```text
+Private-beta runtime and distribution boundary.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `feat: prepare explicit PCW runtime for private beta`.
+
+Software version:
+
+- advanced from `0.2.0-dev.0` to `0.2.0-dev.1`;
+- `package.json` remains the single runtime source;
+- negotiated MCP metadata and `--version` both derive from that source;
+- no release tag was created.
+
+Runtime contract:
+
+1. `--context-root <path>`;
+2. `PCW_CONTEXT_ROOT`;
+3. actionable startup failure.
+
+The CLI value wins when both sources are present. Empty and whitespace-only values are rejected, as are missing CLI values, duplicate root arguments, combined action flags, and unknown options. The selected value is normalized to an absolute path. The former developer-specific fallback and its literal path were removed from runtime source and public documentation.
+
+Before creating the MCP server, bootstrap verifies that the root exists, is a directory, and contains a `pcw.yml` file. Full YAML parsing and structural validation remain in the configuration layer. Expected runtime configuration errors go to stderr without stack traces; normal stdout remains reserved for MCP protocol traffic. `--help` and `--version` intentionally write to stdout and exit without starting MCP.
+
+Architecture:
+
+- `resolveRuntimeOptions({ argv, environment })` is pure and process-independent;
+- `validateRuntimeContextRoot(contextRoot)` owns the small physical startup check;
+- `createPcwMcpServer({ contextRoot })` remains independent from argv, environment, transport, and process exit;
+- `src/server.ts` owns process inputs, help/version output, validation, stdio connection, and fatal startup handling;
+- `dist/server.js` remains the executable entrypoint and stdio remains the only transport.
+
+Distribution boundary:
+
+- `package.json` is marked `private: true`;
+- the package allowlist is `dist`, `README.md`, and the six public contract/runtime/security documents;
+- npm-required `package.json` metadata is included automatically;
+- source, tests, fixtures, `CONTINUITY.md`, Git/IDE state, and temporary data are excluded;
+- `npm pack --dry-run` succeeds without producing a final beta archive;
+- no ZIP, installer, bundled executable, publication, GitHub release, or registry entry was created.
+
+There is no public starter context outside the test fixtures. BLOCK 12 intentionally did not promote fixtures into examples. A small safe starter template/example remains distribution work for BLOCK 13.
+
+Validation results:
+
+```text
+npm run build: passed
+previous tests: 126 passed, 0 failed
+new focused runtime/package tests: 14 added
+obsolete fallback-semantics test: 1 removed
+total: 139 passed, 0 failed
+full suite final runs: 2
+npm pack --dry-run: passed
+```
+
+Node 22 was not available through an installed local version manager or executable, so it was not runtime-tested. The declared `>=22.9.0` minimum remains dependency-engine based. Validation used Node 24.3.0.
+
+Deferred owner/contract decisions:
+
+- the package still declares `ISC`, but no LICENSE file exists; the owner must confirm licensing before external distribution;
+- `hello` remains one of the 13 tools pending beta freeze;
+- machine-readable MCP error codes remain deferred;
+- `absolutePath` and `backupPath` remain compatible for local private beta;
+- package author/repository metadata remains incomplete.
+
+Recommended Block 13: create and validate a small public synthetic starter context/template, perform a clean local-install smoke test from the allowlisted package, and close owner-approved beta decisions for licensing and `hello`. Do not publish, create a release tag, add transports, or reuse test fixtures as public examples without deliberate review.
+
+The final commit hash is reported in the Block 12 completion response and can be recovered with `git log -1 --oneline`.
