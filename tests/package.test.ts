@@ -20,11 +20,13 @@ const expectedFiles = [
   "docs/security.md",
   "docs/private-beta.md",
   "templates",
-  "examples/sample-context"
+  "examples/sample-context",
+  "PRIVATE-BETA-TERMS.md"
 ];
 
 type PackageManifest = {
   private?: boolean;
+  license?: string;
   files?: string[];
 };
 
@@ -42,9 +44,25 @@ test("package manifest defines a private explicit distribution allowlist", async
   ) as PackageManifest;
 
   assert.equal(manifest.private, true);
+  assert.equal(manifest.license, "UNLICENSED");
   assert.deepEqual(manifest.files, expectedFiles);
 });
 
+test("private beta terms preserve the proprietary evaluation contract", async () => {
+  const manifest = JSON.parse(
+    await readFile(resolve(repositoryRoot, "package.json"), "utf8")
+  ) as PackageManifest;
+  const terms = await readFile(
+    resolve(repositoryRoot, "PRIVATE-BETA-TERMS.md"),
+    "utf8"
+  );
+
+  assert.equal(manifest.private, true);
+  assert.equal(manifest.license, "UNLICENSED");
+  assert.match(terms, /private evaluation and testing/i);
+  assert.match(terms, /may not[\s\S]*redistribute/i);
+  assert.match(terms, /not a substitute for formal legal advice/i);
+});
 test("npm pack dry-run excludes development and private-beta state", async () => {
   const command = process.platform === "win32"
     ? process.env.ComSpec ?? "cmd.exe"
@@ -63,6 +81,7 @@ test("npm pack dry-run excludes development and private-beta state", async () =>
   assert.ok(paths.includes("package.json"));
   assert.ok(paths.includes("dist/server.js"));
   assert.ok(paths.includes("README.md"));
+  assert.ok(paths.includes("PRIVATE-BETA-TERMS.md"));
   assert.ok(paths.includes("docs/runtime.md"));
   assert.ok(paths.includes("docs/private-beta.md"));
   assert.ok(paths.includes("templates/pcw.yml"));

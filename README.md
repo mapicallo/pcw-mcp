@@ -36,6 +36,7 @@ The POC is local-first and does not require a backend, account, database, cloud 
 
 - [Public contract baseline](docs/public-contract.md)
 - [Private beta guide](docs/private-beta.md)
+- [Private beta evaluation terms](PRIVATE-BETA-TERMS.md)
 - [Local runtime and distribution](docs/runtime.md)
 - [MCP tool contract](docs/mcp-tools.md)
 - [pcw.yml contract](docs/pcw-yml.md)
@@ -59,6 +60,13 @@ Run the automated characterization suite:
 npm test
 ```
 
+Build and independently verify the ignored private handoff ZIP:
+
+```text
+npm run package:private-beta
+```
+
+The ZIP and its external checksum are created under `artifacts/private-beta/0.2.0-beta.1/`. This does not publish or transmit the artifact.
 Run the complete release-candidate verification without publishing:
 
 ```text

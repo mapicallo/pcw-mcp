@@ -12,7 +12,7 @@ CI has passed on Node 22 and Node 24. The Node 22 job also completed the package
 
 ## Package Contents
 
-The package contains compiled `dist/` modules, public documentation, `README.md`, `templates/`, `examples/sample-context/`, and npm metadata. It excludes source, tests, fixtures, development continuity, Git/IDE state, and private contexts. `private: true` prevents accidental npm publication.
+The package contains compiled `dist/` modules, public documentation, `README.md`, `PRIVATE-BETA-TERMS.md`, `templates/`, `examples/sample-context/`, and npm metadata. It excludes source, tests, fixtures, development continuity, Git/IDE state, and private contexts. `private: true` prevents accidental npm publication. The package is proprietary and declares `UNLICENSED`; use is limited by `PRIVATE-BETA-TERMS.md`.
 
 Copy `examples/sample-context/` to a user-owned location before writable testing. The fictional Example Taskboard demonstrates dynamic physical paths, shared contexts, `BACKEND` with context and continuity, and `OPERATIONS` with continuity only.
 
@@ -95,11 +95,15 @@ npm run verify:beta
 
 This compiles, runs the standard suite, creates and clean-installs a temporary package for functional smoke testing, checks the installed allowlist/privacy boundary, and performs an npm pack dry run. It does not publish or create a Git tag.
 
-## Current Limitations And Blocker
+## Handoff Artifact
+
+The owner can build the ignored local handoff kit with `npm run package:private-beta`. The resulting ZIP and external SHA-256 file are written under `artifacts/private-beta/0.2.0-beta.1/`. The command verifies the release candidate, extracts the ZIP, installs its exact tarball, and exercises the MCP server before retaining the artifacts.
+
+The kit is for an authorized tester under `PRIVATE-BETA-TERMS.md`; this command does not publish or transmit it.
+
+## Current Limitations
 
 - `absolutePath` and `backupPath` remain visible for local beta operation.
 - There is no HTTP/SSE transport, authentication, installer, global CLI, remote synchronization, OCR, or automatic conflict merge.
 - CI currently validates Node 22 and Node 24; compatibility below the declared `>=22.9.0` minimum is unsupported.
-- `ISC` remains in metadata, but licensing has not been approved and no `LICENSE` file exists.
-
-External handoff is blocked on owner confirmation of licensing terms. Local technical validation may continue.
+- The beta remains proprietary and `UNLICENSED`; redistribution or public upload is not permitted by the private evaluation terms.

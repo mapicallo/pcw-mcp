@@ -1213,3 +1213,92 @@ Owner blocker:
 Recommended Block 15: resolve the owner license decision and perform the explicitly approved first-tester handoff/release-candidate delivery. Node 22/24 CI evidence is now green. Add the chosen LICENSE only after approval, then decide whether to create a beta tag or GitHub prerelease and how to deliver the already validated package. Do not publish to npm, add an installer, or add another transport without separate approval.
 
 The final Block 14 commit hash is reported in the completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 15 Validation
+
+Block 15 scope:
+
+```text
+First private-beta handoff owner package and independent recipient rehearsal.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `chore: prepare first PCW private beta handoff`.
+
+Owner and distribution decisions:
+
+- PCW remains proprietary for the first private beta;
+- `package.json` is marked `private: true` and `license: "UNLICENSED"`;
+- no open-source `LICENSE` file was created;
+- `PRIVATE-BETA-TERMS.md` permits private evaluation and testing but prohibits redistribution, public posting, sublicensing, resale, and unauthorized commercial distribution;
+- package author/copyright identity remains unset; the terms use the neutral designation "PCW owner";
+- software version remains `0.2.0-beta.1`;
+- the frozen 12-tool MCP contract and ten machine-readable error codes are unchanged;
+- no release tag, GitHub Release, npm publication, installer, new transport, or third-party transmission was created.
+
+Package and handoff architecture:
+
+- `npm run package:private-beta` runs `npm run verify:beta`, creates the npm tarball in an OS-temporary staging area, assembles the human ZIP, calculates internal and external SHA-256 checksums, and runs an independent extracted-handoff test;
+- `fflate` was added as a development-only dependency for deterministic ZIP creation; no production dependency was added;
+- the npm allowlist now includes `PRIVATE-BETA-TERMS.md` in addition to the previously frozen runtime, public sample, templates, and public documentation;
+- `docs/START-HERE.md` is the tracked source for the ZIP-root `START-HERE.md` handoff guide;
+- final artifacts are written under ignored `artifacts/private-beta/0.2.0-beta.1/` and are not committed;
+- `.gitignore` explicitly excludes `/artifacts/`.
+
+Final handoff artifact:
+
+```text
+ZIP: PCW-MCP-0.2.0-beta.1-PRIVATE-BETA.zip
+ZIP size: 42,602 bytes
+ZIP SHA-256: 159facafed85e1e6d63c774302e15685c50931282241910e05dc7a8dd7366787
+external checksum: PCW-MCP-0.2.0-beta.1-PRIVATE-BETA.zip.sha256
+
+tarball: package/pcw-mcp-0.2.0-beta.1.tgz
+tarball size: 26,884 bytes
+tarball SHA-256: e129efebdb6845ef49d0107b139b1482cafbc6f075bacd43bbfb4719e389196f
+```
+
+The ZIP root is `PCW-MCP-0.2.0-beta.1-PRIVATE-BETA/` and contains:
+
+- `START-HERE.md`;
+- `PRIVATE-BETA-TERMS.md`;
+- `SHA256SUMS.txt`;
+- `package/pcw-mcp-0.2.0-beta.1.tgz`;
+- `sample-context/`;
+- `docs/private-beta.md`, `docs/runtime.md`, `docs/pcw-yml.md`, and `docs/mcp-tools.md`.
+
+Independent recipient rehearsal:
+
+- the generated ZIP was extracted into a fresh OS-temporary directory;
+- its external ZIP checksum and internal tarball checksum were verified;
+- the exact extracted tarball was installed with production dependencies only in a separate temporary project;
+- installed `--version` and `--help` passed;
+- MCP initialization exposed exactly 12 tools without duplicates or extras;
+- project and workstream discovery passed, including `OPERATIONS` with continuity and no specialized context;
+- inventory retrieval/search, source listing, and selective text reading passed;
+- continuity read, successful update, pre-update backup, and stale-write rejection passed;
+- stale rejection retained code `PCW_CONTINUITY_STALE` and did not overwrite the winning content;
+- the extracted package and ZIP privacy scans found no private RMMS/local development paths, source/tests, credentials, Git metadata, or generated history;
+- all temporary extraction, installation, copied context, and continuity-history data were removed.
+
+Validation results:
+
+```text
+npm run build: passed
+standard suite: 149 passed, 0 failed
+packaged clean-install smoke: 1 passed, 0 failed
+independent extracted-handoff test: 1 passed, 0 failed
+total automated validations: 151 passed, 0 failed
+```
+
+Node 22.x and 24.x CI was green before BLOCK 15. The BLOCK 15 commit is pushed normally and its final CI result is reported in the completion response after GitHub Actions finishes; the repository workflow continues to test Node 22.x/24.x and the packaged smoke on Node 22.x.
+
+Handoff readiness and next action:
+
+- the local proprietary private-beta artifact is technically ready for owner review;
+- there is no remaining licensing-format blocker because the owner selected proprietary `UNLICENSED` terms;
+- actual delivery remains blocked until the owner approves the intended recipient, delivery channel, and acceptance of `PRIVATE-BETA-TERMS.md`;
+- package author/copyright identity can be supplied later if the owner wants named legal attribution, but it does not block a controlled one-to-one evaluation under the current neutral terms;
+- recommended next action: the owner reviews the ZIP and terms, selects one authorized tester and secure delivery channel, then explicitly approves transmission and separately decides whether a beta Git tag is wanted;
+- do not begin another implementation block, publish, transmit, tag, or create a release automatically.
+
+The final Block 15 commit hash is reported in the completion response and can be recovered with `git log -1 --oneline`.

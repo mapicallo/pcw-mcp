@@ -90,8 +90,8 @@ The `pcw.yml` schema is unchanged for this beta. Dynamic logical names remain su
 
 PCW is pre-1.0. Fixes should preserve this documented contract. Additive fields/tools may appear in later prereleases, but removals, renames, changed validation, error-code changes, and incompatible `pcw.yml` changes require an explicit version and migration note.
 
-## Distribution Metadata And Blocker
+## Distribution Metadata
 
-The private package allowlists compiled output, public documentation, templates, and the synthetic sample context. Source, tests, fixtures, Git state, and project `CONTINUITY.md` are excluded. Repository metadata points to the credential-free Git origin. Author metadata remains unset because it has not been established.
+The private package allowlists compiled output, `PRIVATE-BETA-TERMS.md`, public documentation, templates, and the synthetic sample context. Source, tests, fixtures, Git state, and project `CONTINUITY.md` are excluded. Repository metadata points to the credential-free Git origin. Author metadata remains unset because it has not been established.
 
-The package still declares `ISC`, but no `LICENSE` file exists and the owner has not confirmed licensing terms. External handoff remains blocked until the owner makes that decision. Nothing in this baseline publishes the package or creates a release tag.
+The owner selected a proprietary private-beta model. Package metadata declares `UNLICENSED` with `private: true`; no open-source license or redistribution right is granted. `PRIVATE-BETA-TERMS.md` permits only authorized private evaluation. Nothing in this baseline publishes the package, transmits the handoff kit, or creates a release tag.

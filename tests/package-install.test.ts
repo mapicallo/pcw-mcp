@@ -51,6 +51,8 @@ type PackResult = {
 
 type InstalledManifest = {
   main?: string;
+  license?: string;
+  private?: boolean;
   version?: string;
   dependencies?: Record<string, string>;
 };
@@ -224,9 +226,12 @@ test("packed PCW installs and operates independently from repository sources", a
       await readFile(join(installedPackageRoot, "package.json"), "utf8")
     ) as InstalledManifest;
     assert.equal(installedManifest.main, "dist/server.js");
+    assert.equal(installedManifest.license, "UNLICENSED");
+    assert.equal(installedManifest.private, true);
     assert.equal(installedManifest.version, PCW_SOFTWARE_VERSION);
     assert.equal(installedManifest.dependencies?.tsx, undefined);
     await access(serverEntry);
+    await access(join(installedPackageRoot, "PRIVATE-BETA-TERMS.md"));
     await assert.rejects(access(join(installedPackageRoot, "src")));
     await assert.rejects(access(join(installedPackageRoot, "tests")));
     await assert.rejects(access(join(installationRoot, "node_modules", "tsx")));
