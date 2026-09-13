@@ -1,6 +1,6 @@
 # PCW-MCP Private Beta Guide
 
-PCW-MCP `0.2.0-beta.1` is a local-only private-beta release candidate. It is not published, tagged as a release, or available through a remote transport.
+PCW-MCP `0.2.0-beta.2` is a local-only private-beta usability candidate. Beta.1 remains frozen and tagged; beta.2 is not tagged, published, or available through a remote transport.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ CI has passed on Node 22 and Node 24. The Node 22 job also completed the package
 
 ## Package Contents
 
-The package contains compiled `dist/` modules, public documentation, `README.md`, `PRIVATE-BETA-TERMS.md`, `templates/`, `examples/sample-context/`, and npm metadata. It excludes source, tests, fixtures, development continuity, Git/IDE state, and private contexts. `private: true` prevents accidental npm publication. The package is proprietary and declares `UNLICENSED`; use is limited by `PRIVATE-BETA-TERMS.md`.
+The package contains compiled `dist/` modules, bilingual onboarding and terms, public documentation, `README.md`, `templates/`, `examples/sample-context/`, and npm metadata. It excludes source, tests, fixtures, development continuity, Git/IDE state, and private contexts. `private: true` prevents accidental npm publication. The package is proprietary and declares `UNLICENSED`; use is limited by `PRIVATE-BETA-TERMS.md` and its Spanish counterpart.
 
 Copy `examples/sample-context/` to a user-owned location before writable testing. The fictional Example Taskboard demonstrates dynamic physical paths, shared contexts, `BACKEND` with context and continuity, and `OPERATIONS` with continuity only.
 
@@ -32,6 +32,17 @@ node C:\Tools\pcw-mcp\dist\server.js --context-root C:\Contexts\sample-context
 The CLI value takes precedence. Invalid or missing roots fail before stdio starts.
 
 ## MCP Client Examples
+
+The primary validated Codex flow uses its CLI:
+
+```powershell
+codex --version
+codex mcp list
+codex mcp add pcw --env PCW_CONTEXT_ROOT="C:\Contexts\sample-context" -- node "C:\Tools\pcw-test\node_modules\pcw-mcp\dist\server.js"
+codex mcp get pcw
+```
+
+Environment values may be hidden by `codex mcp get` for security. Remove the registration with `codex mcp remove pcw`. Syntax can evolve in future Codex versions.
 
 Codex-style configuration:
 
@@ -97,7 +108,7 @@ This compiles, runs the standard suite, creates and clean-installs a temporary p
 
 ## Handoff Artifact
 
-The owner can build the ignored local handoff kit with `npm run package:private-beta`. The resulting ZIP and external SHA-256 file are written under `artifacts/private-beta/0.2.0-beta.1/`. The command verifies the release candidate, extracts the ZIP, installs its exact tarball, and exercises the MCP server before retaining the artifacts.
+The owner can build the ignored local handoff kit with `npm run package:private-beta`. The beta.2 ZIP and external SHA-256 file are written under `artifacts/private-beta/0.2.0-beta.2/`. The command verifies the candidate, extracts the ZIP, installs its exact tarball, and exercises the MCP server before retaining the artifacts.
 
 The kit is for an authorized tester under `PRIVATE-BETA-TERMS.md`; this command does not publish or transmit it.
 
@@ -107,3 +118,5 @@ The kit is for an authorized tester under `PRIVATE-BETA-TERMS.md`; this command 
 - There is no HTTP/SSE transport, authentication, installer, global CLI, remote synchronization, OCR, or automatic conflict merge.
 - CI currently validates Node 22 and Node 24; compatibility below the declared `>=22.9.0` minimum is unsupported.
 - The beta remains proprietary and `UNLICENSED`; redistribution or public upload is not permitted by the private evaluation terms.
+
+For normal operation, adoption of an existing conversation, and software/context lifecycle, read `daily-use.md`, `adopting-existing-session.md`, and `lifecycle.md`.

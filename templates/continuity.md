@@ -1,5 +1,7 @@
 # <WORKSTREAM>
 
+<Keep only durable workstream state. Remove chat transcript, approval status, and the mechanics of creating this checkpoint.>
+
 ## Current objective
 
 <The outcome this workstream is currently pursuing.>

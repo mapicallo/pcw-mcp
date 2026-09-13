@@ -1,6 +1,6 @@
 {
   "name": "pcw-mcp",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0-beta.2",
   "description": "Local-first MCP server for Persistent Context Workstreams",
   "main": "dist/server.js",
   "scripts": {
@@ -45,9 +45,16 @@
     "docs/runtime.md",
     "docs/security.md",
     "docs/private-beta.md",
+    "docs/START-HERE.md",
+    "docs/START-HERE-ES.md",
+    "docs/daily-use.md",
+    "docs/daily-use-ES.md",
+    "docs/adopting-existing-session.md",
+    "docs/lifecycle.md",
     "templates",
     "examples/sample-context",
-    "PRIVATE-BETA-TERMS.md"
+    "PRIVATE-BETA-TERMS.md",
+    "PRIVATE-BETA-TERMS-ES.md"
   ],
   "repository": {
     "type": "git",

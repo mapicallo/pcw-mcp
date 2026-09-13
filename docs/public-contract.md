@@ -1,6 +1,6 @@
 # PCW v0.2 Private Beta Contract
 
-This document defines the externally observable contract of PCW-MCP `0.2.0-beta.1`. It is a private-beta release-candidate baseline, not a `1.0` stability claim and not a published release.
+This document defines the externally observable contract of PCW-MCP `0.2.0-beta.2`. It preserves the frozen beta.1 MCP contract while improving private-beta onboarding and packaging; it is not a `1.0` stability claim or a published release.
 
 Detailed contracts live in [MCP tools](mcp-tools.md), [pcw.yml](pcw-yml.md), and the [private beta guide](private-beta.md).
 
@@ -20,7 +20,7 @@ Source modules, service classes, helper functions, temporary filenames, and inte
 
 ## Identity And Versioning
 
-`package.json` is the single software-version source of truth. The MCP server and `--version` derive `0.2.0-beta.1` from it. Software version and `pcw.yml.version` are separate: the latter is an optional string or number under the current configuration contract.
+`package.json` is the single software-version source of truth. The MCP server and `--version` derive `0.2.0-beta.2` from it. Software version and `pcw.yml.version` are separate: the latter is an optional string or number under the current configuration contract.
 
 No beta release tag or publication exists yet.
 
@@ -92,6 +92,6 @@ PCW is pre-1.0. Fixes should preserve this documented contract. Additive fields/
 
 ## Distribution Metadata
 
-The private package allowlists compiled output, `PRIVATE-BETA-TERMS.md`, public documentation, templates, and the synthetic sample context. Source, tests, fixtures, Git state, and project `CONTINUITY.md` are excluded. Repository metadata points to the credential-free Git origin. Author metadata remains unset because it has not been established.
+The private package allowlists compiled output, bilingual private-beta terms and onboarding, public documentation, templates, and the synthetic sample context. Source, tests, fixtures, Git state, and project `CONTINUITY.md` are excluded. Repository metadata points to the credential-free Git origin. Author metadata remains unset because it has not been established.
 
-The owner selected a proprietary private-beta model. Package metadata declares `UNLICENSED` with `private: true`; no open-source license or redistribution right is granted. `PRIVATE-BETA-TERMS.md` permits only authorized private evaluation. Nothing in this baseline publishes the package, transmits the handoff kit, or creates a release tag.
+The owner selected a proprietary private-beta model. Package metadata declares `UNLICENSED` with `private: true`; no open-source license or redistribution right is granted. The English and Spanish private-beta terms permit only authorized private evaluation. Nothing in this baseline publishes the package, transmits the handoff kit, or creates a beta.2 release tag.

@@ -62,7 +62,7 @@ An optional path object may exist without `path`; tools then treat that resource
 
 ## Version Distinction
 
-The server software version is currently `0.2.0-beta.1` and comes from `package.json`.
+The server software version is currently `0.2.0-beta.2` and comes from `package.json`.
 
 The independent `pcw.yml.version` field remains optional and accepts strings or numbers because that is the validated POC behavior. A future schema migration should define a required canonical integer such as `version: 1`, but that would be an explicit compatibility change and is not part of this baseline.
 
@@ -79,5 +79,18 @@ Configuration structure is validated by Zod. Filesystem safety is enforced separ
 - Shared sections and workstreams are not inferred from physical folders.
 - Inventory is one configured document, not a source crawler or database.
 - Configuration edits become visible without restarting the server.
+
+## Minimal Useful Context
+
+Although every top-level schema property is optional, tools can only expose resources that are configured. A small useful context can contain one inventory and one continuity-only workstream:
+
+```text
+pcw.yml
+inventory.md
+continuity/
+  WORKSTREAM.md
+```
+
+Start from `templates/pcw-minimal.yml`. Specialized workstream context and shared context are optional; continuity is configured independently. Name a workstream for its durable line of work, not for the chat that happens to use it.
 
 Malformed YAML and invalid structure return concise MCP errors. Validation reports at most three issue summaries and does not expose raw Zod objects or stack traces.

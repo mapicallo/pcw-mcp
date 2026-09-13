@@ -134,14 +134,24 @@ test("extracted private-beta ZIP installs and operates independently", async () 
 
     for (const required of [
       `${bundleName}/START-HERE.md`,
+      `${bundleName}/START-HERE-ES.md`,
       `${bundleName}/PRIVATE-BETA-TERMS.md`,
+      `${bundleName}/PRIVATE-BETA-TERMS-ES.md`,
       `${bundleName}/SHA256SUMS.txt`,
       `${bundleName}/package/${tarballName}`,
+      `${bundleName}/templates/pcw.yml`,
+      `${bundleName}/templates/pcw-minimal.yml`,
+      `${bundleName}/templates/continuity.md`,
+      `${bundleName}/templates/inventory.md`,
       `${bundleName}/sample-context/pcw.yml`,
       `${bundleName}/docs/private-beta.md`,
       `${bundleName}/docs/runtime.md`,
       `${bundleName}/docs/pcw-yml.md`,
-      `${bundleName}/docs/mcp-tools.md`
+      `${bundleName}/docs/mcp-tools.md`,
+      `${bundleName}/docs/daily-use.md`,
+      `${bundleName}/docs/daily-use-ES.md`,
+      `${bundleName}/docs/adopting-existing-session.md`,
+      `${bundleName}/docs/lifecycle.md`
     ]) {
       assert.ok(archiveEntries.includes(required), `ZIP contains ${required}`);
     }
@@ -152,7 +162,7 @@ test("extracted private-beta ZIP installs and operates independently", async () 
       /(^|\/)node_modules\//i,
       /(^|\/)\.git(?:\/|$)/i,
       /(^|\/)\.github(?:\/|$)/i,
-      /(^|\/)CONTINUITY\.md$/i
+      /^PCW-MCP-[^/]+-PRIVATE-BETA\/CONTINUITY\.md$/i
     ];
     for (const entry of archiveEntries) {
       for (const pattern of forbiddenPaths) {
@@ -165,6 +175,7 @@ test("extracted private-beta ZIP installs and operates independently", async () 
       /C:\\rmms-context/i,
       /C:\\code\\pcw-mcp/i,
       /\bRMMS\b/i,
+      /\bIndra\b/i,
       /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
       /github_pat_[A-Za-z0-9_]+/,
       /ghp_[A-Za-z0-9]+/
@@ -198,6 +209,8 @@ test("extracted private-beta ZIP installs and operates independently", async () 
     const serverEntry = join(installedRoot, "dist", "server.js");
     await access(serverEntry);
     await access(join(installedRoot, "PRIVATE-BETA-TERMS.md"));
+    await access(join(installedRoot, "PRIVATE-BETA-TERMS-ES.md"));
+    await access(join(installedRoot, "templates", "pcw-minimal.yml"));
     await assert.rejects(access(join(installedRoot, "src")));
     await assert.rejects(access(join(installedRoot, "tests")));
 

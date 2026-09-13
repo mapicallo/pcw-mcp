@@ -1,5 +1,7 @@
 # PCW Private Beta Evaluation Terms
 
+[Español](PRIVATE-BETA-TERMS-ES.md)
+
 PCW-MCP is provided only to an authorized recipient for private evaluation and testing. Ownership and copyright remain with the PCW owner.
 
 The recipient may install and use the supplied private-beta package solely to evaluate its functionality. Without prior written authorization from the PCW owner, the recipient may not:

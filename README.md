@@ -16,7 +16,7 @@ PCW is intended to be vendor/provider neutral. The persistent state does not bel
 
 PCW-MCP v0.1 is a validated functional POC. It has demonstrated local stdio MCP access, selective persistent context retrieval, continuity versioning, controlled continuity writes, history backup, and optimistic concurrency.
 
-This project is not production-ready. `0.2.0-beta.1` is the local private-beta release candidate; it is not published and has no release tag.
+This project is not production-ready. `0.2.0-beta.1` is frozen and tagged. `0.2.0-beta.2` is the next local private-beta usability candidate and is not tagged or published.
 
 ## Current Stack
 
@@ -36,7 +36,12 @@ The POC is local-first and does not require a backend, account, database, cloud 
 
 - [Public contract baseline](docs/public-contract.md)
 - [Private beta guide](docs/private-beta.md)
+- [Start here](docs/START-HERE.md) / [Primeros pasos](docs/START-HERE-ES.md)
+- [Daily use](docs/daily-use.md) / [Uso diario](docs/daily-use-ES.md)
+- [Adopt an existing session](docs/adopting-existing-session.md)
+- [Installation and lifecycle](docs/lifecycle.md)
 - [Private beta evaluation terms](PRIVATE-BETA-TERMS.md)
+- [Términos de la beta privada](PRIVATE-BETA-TERMS-ES.md)
 - [Local runtime and distribution](docs/runtime.md)
 - [MCP tool contract](docs/mcp-tools.md)
 - [pcw.yml contract](docs/pcw-yml.md)
@@ -66,7 +71,8 @@ Build and independently verify the ignored private handoff ZIP:
 npm run package:private-beta
 ```
 
-The ZIP and its external checksum are created under `artifacts/private-beta/0.2.0-beta.1/`. This does not publish or transmit the artifact.
+The ZIP and its external checksum are created under the current version directory in `artifacts/private-beta/`. This does not publish or transmit the artifact.
+
 Run the complete release-candidate verification without publishing:
 
 ```text
@@ -74,6 +80,7 @@ npm run verify:beta
 ```
 
 This runs the build, standard suite, clean package-install smoke, package/privacy checks, and an npm pack dry run.
+
 Run the slower clean-install smoke test, which packs and installs PCW entirely under the operating system temporary directory:
 
 ```text
@@ -85,14 +92,14 @@ The tests start the compiled MCP stdio server through the official MCP client. T
 ## Quick Start: Private Beta
 
 1. Build or obtain the local PCW-MCP package.
-2. Copy `examples/sample-context` to a user-owned context directory, or start from `templates/`.
+2. Copy `examples/sample-context` to a user-owned context directory, or create a minimal context from `templates/pcw-minimal.yml`.
 3. Set `PCW_CONTEXT_ROOT=<path>` or pass `--context-root <path>`.
 4. Start `node dist/server.js` and configure it as a stdio MCP server.
 5. Ask: `Use PCW to list the available workstreams.`
 6. Continue with: `Use PCW to continue the BACKEND workstream. Reconstruct its current state before modifying anything.`
 7. Before ending the session, read the latest continuity SHA and use `update_continuity` to replace the complete checkpoint.
 
-The sample is a fictional Example Taskboard context. `BACKEND` has specialized context and continuity; `OPERATIONS` has continuity only. The semantic inventory demonstrates how to search first and read only relevant sources. See the [private beta guide](docs/private-beta.md) for generic Codex and Cursor configurations and current limitations.
+The sample is a fictional Example Taskboard context. `BACKEND` has specialized context and continuity; `OPERATIONS` has continuity only. The semantic inventory demonstrates how to search first and read only relevant sources. See [Start Here](docs/START-HERE.md) for executable Codex/Cursor onboarding and [daily use](docs/daily-use.md) for checkpoint guidance.
 
 ## Local runtime
 

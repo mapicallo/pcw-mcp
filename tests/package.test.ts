@@ -19,9 +19,16 @@ const expectedFiles = [
   "docs/runtime.md",
   "docs/security.md",
   "docs/private-beta.md",
+  "docs/START-HERE.md",
+  "docs/START-HERE-ES.md",
+  "docs/daily-use.md",
+  "docs/daily-use-ES.md",
+  "docs/adopting-existing-session.md",
+  "docs/lifecycle.md",
   "templates",
   "examples/sample-context",
-  "PRIVATE-BETA-TERMS.md"
+  "PRIVATE-BETA-TERMS.md",
+  "PRIVATE-BETA-TERMS-ES.md"
 ];
 
 type PackageManifest = {
@@ -56,12 +63,18 @@ test("private beta terms preserve the proprietary evaluation contract", async ()
     resolve(repositoryRoot, "PRIVATE-BETA-TERMS.md"),
     "utf8"
   );
+  const spanishTerms = await readFile(
+    resolve(repositoryRoot, "PRIVATE-BETA-TERMS-ES.md"),
+    "utf8"
+  );
 
   assert.equal(manifest.private, true);
   assert.equal(manifest.license, "UNLICENSED");
   assert.match(terms, /private evaluation and testing/i);
   assert.match(terms, /may not[\s\S]*redistribute/i);
   assert.match(terms, /not a substitute for formal legal advice/i);
+  assert.match(spanishTerms, /evaluación y prueba privadas/i);
+  assert.match(spanishTerms, /no sustituyen al asesoramiento jurídico profesional/i);
 });
 test("npm pack dry-run excludes development and private-beta state", async () => {
   const command = process.platform === "win32"
@@ -82,9 +95,17 @@ test("npm pack dry-run excludes development and private-beta state", async () =>
   assert.ok(paths.includes("dist/server.js"));
   assert.ok(paths.includes("README.md"));
   assert.ok(paths.includes("PRIVATE-BETA-TERMS.md"));
+  assert.ok(paths.includes("PRIVATE-BETA-TERMS-ES.md"));
+  assert.ok(paths.includes("docs/START-HERE.md"));
+  assert.ok(paths.includes("docs/START-HERE-ES.md"));
+  assert.ok(paths.includes("docs/daily-use.md"));
+  assert.ok(paths.includes("docs/daily-use-ES.md"));
+  assert.ok(paths.includes("docs/adopting-existing-session.md"));
+  assert.ok(paths.includes("docs/lifecycle.md"));
   assert.ok(paths.includes("docs/runtime.md"));
   assert.ok(paths.includes("docs/private-beta.md"));
   assert.ok(paths.includes("templates/pcw.yml"));
+  assert.ok(paths.includes("templates/pcw-minimal.yml"));
   assert.ok(paths.includes("templates/continuity.md"));
   assert.ok(paths.includes("templates/inventory.md"));
   assert.ok(paths.includes("examples/sample-context/pcw.yml"));

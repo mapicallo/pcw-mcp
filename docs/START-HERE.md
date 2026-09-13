@@ -1,63 +1,64 @@
 # Start Here: PCW-MCP Private Beta
 
-PCW keeps project knowledge and workstream continuity outside temporary AI sessions. This kit contains a local MCP server package and a fictional sample context for evaluation.
+[Español: START-HERE-ES.md](START-HERE-ES.md)
 
-## What You Need
+PCW keeps project knowledge and workstream continuity outside temporary AI sessions. This kit contains a local MCP server, templates, and a fictional sample context.
+
+## Requirements
 
 - Node.js 22.9.0 or newer and npm;
-- this private handoff kit;
-- an authorized local directory for any real PCW context;
+- an authorized copy of this private handoff kit;
+- a local directory for the PCW context;
 - a stdio MCP client such as Codex or Cursor.
 
-Read `PRIVATE-BETA-TERMS.md` before use. Redistribution or public uploading is not permitted without prior written authorization.
+Read `PRIVATE-BETA-TERMS.md` before use. Do not redistribute or publicly upload the kit without written authorization.
 
-## Install Locally
+## Install
 
-From a directory outside this kit:
+From a directory outside the kit:
 
 ```powershell
 mkdir pcw-test
 cd pcw-test
 npm init -y
-npm install "<path-to-kit>\package\pcw-mcp-0.2.0-beta.1.tgz" --omit=dev
+npm install "<path-to-kit>\package\pcw-mcp-0.2.0-beta.2.tgz" --omit=dev
 ```
-
-Copy `sample-context` to a user-owned directory before testing continuity writes. Do not write into the copy inside the ZIP or an installed package.
-
-Check the runtime:
 
 ```powershell
 node node_modules\pcw-mcp\dist\server.js --version
 node node_modules\pcw-mcp\dist\server.js --help
 ```
 
-## Select The Sample Context
+Copy `sample-context` to a user-owned directory before testing writes. Do not use the copy inside the ZIP as durable state.
 
-Use one of these mechanisms:
+## Register With Codex
 
-```powershell
-node node_modules\pcw-mcp\dist\server.js --context-root "C:\path\to\sample-context"
-```
-
-or:
+Check the CLI and current registrations:
 
 ```powershell
-$env:PCW_CONTEXT_ROOT = "C:\path\to\sample-context"
-node node_modules\pcw-mcp\dist\server.js
+codex --version
+codex mcp list
 ```
 
-Only one root-selection mechanism is required. The CLI option takes precedence.
+Register PCW with placeholders replaced by absolute paths:
 
-## Configure Codex
-
-```toml
-[mcp_servers.pcw]
-command = "node"
-args = ["C:\\path\\to\\pcw-test\\node_modules\\pcw-mcp\\dist\\server.js"]
-env = { PCW_CONTEXT_ROOT = "C:\\path\\to\\sample-context" }
+```powershell
+codex mcp add pcw --env PCW_CONTEXT_ROOT="C:\Contexts\sample-context" -- node "C:\Tools\pcw-test\node_modules\pcw-mcp\dist\server.js"
+codex mcp list
+codex mcp get pcw
 ```
+
+`codex mcp get pcw` may hide environment values for security. To disconnect PCW later:
+
+```powershell
+codex mcp remove pcw
+```
+
+This CLI flow was validated with the beta environment and may evolve in future Codex versions. A tested Codex integration inside IntelliJ and Codex Desktop used the same global registration. Some clients can expose a newly registered server to an existing session; reconnect or restart if it is not visible.
 
 ## Configure Cursor
+
+Package installation is the same; only client registration differs:
 
 ```json
 {
@@ -65,37 +66,56 @@ env = { PCW_CONTEXT_ROOT = "C:\\path\\to\\sample-context" }
     "pcw": {
       "type": "stdio",
       "command": "node",
-      "args": ["C:\\path\\to\\pcw-test\\node_modules\\pcw-mcp\\dist\\server.js"],
-      "env": { "PCW_CONTEXT_ROOT": "C:\\path\\to\\sample-context" }
+      "args": ["C:\\Tools\\pcw-test\\node_modules\\pcw-mcp\\dist\\server.js"],
+      "env": { "PCW_CONTEXT_ROOT": "C:\\Contexts\\sample-context" }
     }
   }
 }
 ```
 
-## First Prompts
+## Create Your First Context
 
-Discovery:
+For a minimal useful context, copy `templates/pcw-minimal.yml` as `pcw.yml`, copy `templates/inventory.md` as `inventory.md`, and copy `templates/continuity.md` as `continuity/WORKSTREAM.md`. Replace placeholders and keep all configured paths inside the context root.
+
+```text
+my-context/
+  pcw.yml
+  inventory.md
+  continuity/
+    WORKSTREAM.md
+```
+
+Specialized workstream context and shared context are optional. A workstream can have continuity without either. Name workstreams after durable work such as `BACKEND` or `OBSERVABILITY`, never after a chat or session.
+
+See `docs/pcw-yml.md` for the exact schema and `templates/pcw.yml` for a fuller example.
+
+## First Prompts
 
 ```text
 Use PCW to list the available workstreams and summarize the project structure. Do not modify anything.
 ```
 
-Continuation:
-
 ```text
-Use PCW to continue the BACKEND workstream. This is a completely new session. Reconstruct the current state from persistent context before suggesting changes. Do not modify continuity yet.
+Use PCW to continue the BACKEND workstream. This is a completely new session. Reconstruct persistent state before modifying anything. Do not update continuity yet.
 ```
 
-Checkpoint:
+At a meaningful milestone:
 
 ```text
-Read the current BACKEND continuity and its SHA. Prepare an updated complete continuity document preserving relevant durable state, then update it through PCW using optimistic concurrency.
+Update the BACKEND checkpoint in PCW. Reread continuity and its SHA first. Preserve only durable workstream state needed by a completely new session.
 ```
 
-`update_continuity` replaces the complete canonical Markdown document and creates a backup under `.pcw/history`. A stale SHA is rejected; read again and reconcile instead of overwriting.
+`update_continuity` replaces the complete Markdown checkpoint, creates history under `.pcw/history`, and rejects stale SHAs. Do not save chat transcripts or the temporary mechanics of creating a checkpoint.
+
+## Next Guides
+
+- `docs/daily-use.md`: normal sessions, checkpoints, broken chats, and stale writes;
+- `docs/adopting-existing-session.md`: migrate an existing conversation safely;
+- `docs/lifecycle.md`: disable, uninstall, reinstall, upgrade, and multiple projects;
+- `docs/runtime.md`: context-root and client configuration details.
 
 ## Security
 
-PCW limits filesystem access to configured context boundaries. It is not an operating-system sandbox. If the connected AI client uses a cloud model, content read through PCW may be sent to that provider. Never configure data you are not authorized to share with the selected AI system.
+PCW constrains access to configured context boundaries but is not an operating-system sandbox. A connected cloud AI client may transmit content to its provider. Configure only data you are authorized to share with that AI system.
 
-Do not publish or redistribute this kit, use the committed sample as writable durable state, bypass stale-write protection, or treat the beta as production software.
+Changing `pcw.yml` inside one root is dynamically visible. Changing `PCW_CONTEXT_ROOT` may require reconnecting or restarting the client because an existing MCP process retains its startup root.

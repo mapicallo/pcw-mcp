@@ -48,6 +48,17 @@ Unknown options, missing values, empty roots, missing directories, non-directory
 
 ## Client Configuration
 
+For Codex, the validated CLI flow is:
+
+```powershell
+codex --version
+codex mcp list
+codex mcp add pcw --env PCW_CONTEXT_ROOT="C:\Contexts\sample-project" -- node "C:\Tools\pcw-test\node_modules\pcw-mcp\dist\server.js"
+codex mcp get pcw
+```
+
+`codex mcp get pcw` may hide environment values for security. Use `codex mcp remove pcw` to disconnect it. These commands were validated in the beta environment but Codex CLI syntax may evolve.
+
 A Codex-style local configuration can provide the root through the environment:
 
 ```toml
@@ -75,6 +86,12 @@ A Cursor-style stdio configuration can use the same runtime contract:
 
 Client configuration formats can evolve; these examples describe the process contract and use placeholders rather than developer-specific paths. Automated tests validate the stdio server with the official MCP client. They do not claim product-specific integration certification.
 
+In the tested environment, one global Codex registration was visible from Codex Desktop and a Codex integration inside IntelliJ. Some clients can expose a newly registered server to an existing session; otherwise reconnect or restart.
+
+Edits to `pcw.yml` under the same root are reread on tool calls. Changing `PCW_CONTEXT_ROOT` does not reconfigure an already-running process: reconnect/restart the client or reopen/restore the session to start PCW with the new root.
+
+One registration maps to one context root with many workstreams. For separate projects, register multiple names such as `pcw-platform` and `pcw-analytics`, each with its own root. Multi-project selection is not implemented.
+
 ## Distribution Boundary
 
 The private-beta npm package allowlist contains:
@@ -84,8 +101,9 @@ The private-beta npm package allowlist contains:
 - the public contract, MCP tools, `pcw.yml`, PCW model, runtime, security, and private-beta guides;
 - `templates/`;
 - `examples/sample-context/`;
+- bilingual onboarding, daily-use, lifecycle, adoption, and evaluation-term documents;
 - npm-required `package.json` metadata.
 
 It excludes source, tests and fixtures, project continuity, Git/IDE state, temporary files, and private contexts. The package is marked `private: true` to prevent accidental npm publication. This still permits local `npm pack --dry-run` inspection.
 
-No ZIP, installer, executable bundle, npm publication, GitHub release, or MCP Registry entry is produced in this development block. Stdio remains the only implemented transport.
+`npm run package:private-beta` can create a local ignored handoff ZIP. It does not create an installer or executable bundle and does not publish to npm, GitHub Releases, or the MCP Registry. Stdio remains the only implemented transport.

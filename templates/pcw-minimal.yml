@@ -1,0 +1,13 @@
+version: 1
+
+project:
+  id: <project-id>
+  name: <Project Name>
+
+inventory:
+  path: inventory.md
+
+workstreams:
+  WORKSTREAM:
+    continuity:
+      path: continuity/WORKSTREAM.md

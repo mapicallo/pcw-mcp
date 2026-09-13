@@ -99,25 +99,40 @@ try {
     throw new Error(`Unexpected npm artifact: ${packResult.filename}`);
   }
 
-  await cp(join(repositoryRoot, "docs", "START-HERE.md"), join(bundleRoot, "START-HERE.md"));
-  await cp(
-    join(repositoryRoot, "PRIVATE-BETA-TERMS.md"),
-    join(bundleRoot, "PRIVATE-BETA-TERMS.md")
-  );
+  for (const document of ["START-HERE.md", "START-HERE-ES.md"]) {
+    await cp(join(repositoryRoot, "docs", document), join(bundleRoot, document));
+  }
+  for (const document of ["PRIVATE-BETA-TERMS.md", "PRIVATE-BETA-TERMS-ES.md"]) {
+    await cp(join(repositoryRoot, document), join(bundleRoot, document));
+  }
   await cp(
     join(repositoryRoot, "examples", "sample-context"),
     join(bundleRoot, "sample-context"),
     { recursive: true }
   );
+  await cp(join(repositoryRoot, "templates"), join(bundleRoot, "templates"), {
+    recursive: true
+  });
 
-  for (const document of ["private-beta.md", "runtime.md", "pcw-yml.md", "mcp-tools.md"]) {
+  for (const document of [
+    "private-beta.md",
+    "runtime.md",
+    "pcw-yml.md",
+    "mcp-tools.md",
+    "daily-use.md",
+    "daily-use-ES.md",
+    "adopting-existing-session.md",
+    "lifecycle.md"
+  ]) {
     await cp(join(repositoryRoot, "docs", document), join(docsDirectory, document));
   }
 
   const checksumTargets = [
     `package/${expectedTarball}`,
     "START-HERE.md",
-    "PRIVATE-BETA-TERMS.md"
+    "START-HERE-ES.md",
+    "PRIVATE-BETA-TERMS.md",
+    "PRIVATE-BETA-TERMS-ES.md"
   ];
   const checksumLines = [];
   for (const target of checksumTargets) {

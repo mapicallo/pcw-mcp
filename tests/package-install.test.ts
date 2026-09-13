@@ -232,6 +232,8 @@ test("packed PCW installs and operates independently from repository sources", a
     assert.equal(installedManifest.dependencies?.tsx, undefined);
     await access(serverEntry);
     await access(join(installedPackageRoot, "PRIVATE-BETA-TERMS.md"));
+    await access(join(installedPackageRoot, "PRIVATE-BETA-TERMS-ES.md"));
+    await access(join(installedPackageRoot, "templates", "pcw-minimal.yml"));
     await assert.rejects(access(join(installedPackageRoot, "src")));
     await assert.rejects(access(join(installedPackageRoot, "tests")));
     await assert.rejects(access(join(installationRoot, "node_modules", "tsx")));
@@ -250,6 +252,7 @@ test("packed PCW installs and operates independently from repository sources", a
       /C:\\rmms-context/i,
       /C:\\code\\pcw-mcp/i,
       /\bRMMS\b/i,
+      /\bIndra\b/i,
       /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
       /github_pat_[A-Za-z0-9_]+/,
       /ghp_[A-Za-z0-9]+/
@@ -363,6 +366,43 @@ test("packed PCW installs and operates independently from repository sources", a
         "get_project_info"
       );
       assert.equal(project.data.project.id, "example-taskboard");
+    });
+
+    await t.test("uninstall and reinstall preserve the user context", async () => {
+      const contextBeforeUninstall = await snapshotDirectory(contextRoot);
+
+      await runNpm(
+        ["uninstall", "pcw-mcp", "--ignore-scripts", "--no-audit", "--no-fund"],
+        installationRoot
+      );
+      await assert.rejects(access(installedPackageRoot));
+      assert.deepEqual(await snapshotDirectory(contextRoot), contextBeforeUninstall);
+
+      await runNpm(
+        [
+          "install",
+          artifactPath,
+          "--omit=dev",
+          "--ignore-scripts",
+          "--no-audit",
+          "--no-fund"
+        ],
+        installationRoot
+      );
+      await access(serverEntry);
+      const reinstalledVersion = runInstalledEntrypoint(serverEntry, ["--version"]);
+      assert.equal(reinstalledVersion.status, 0);
+      assert.equal(reinstalledVersion.stdout.trim(), PCW_SOFTWARE_VERSION);
+
+      await withInstalledServer(serverEntry, contextRoot, "cli", async (client) => {
+        const continuity = await callTool<{ continuity: string }>(
+          client,
+          "get_continuity",
+          { name: "BACKEND" }
+        );
+        assert.match(continuity.data.continuity, /Packaged smoke update wins/);
+      });
+      assert.deepEqual(await snapshotDirectory(contextRoot), contextBeforeUninstall);
     });
   } finally {
     assert.deepEqual(

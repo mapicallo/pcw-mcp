@@ -1302,3 +1302,87 @@ Handoff readiness and next action:
 - do not begin another implementation block, publish, transmit, tag, or create a release automatically.
 
 The final Block 15 commit hash is reported in the completion response and can be recovered with `git log -1 --oneline`.
+
+## Block 16 Validation
+
+Block 16 scope:
+
+```text
+PCW 0.2.0-beta.2 user experience, onboarding, lifecycle, templates, and packaging hardening.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `feat: prepare PCW 0.2.0-beta.2 usability update`.
+
+Version and frozen contract:
+
+- software/package version advanced to `0.2.0-beta.2` through the existing `package.json` source of truth;
+- MCP metadata and compiled `--version` resolve to `0.2.0-beta.2`;
+- annotated `v0.2.0-beta.1` remains untouched on commit `8c11c5ef48c1d5abf720d7fee3940b1f52b268fc`;
+- no beta.2 tag was created;
+- the 12 MCP tools, ten public error codes, `pcw.yml` schema, readers, inventory, filesystem, continuity, history, stdio, `absolutePath`, and `backupPath` behavior are unchanged;
+- `private: true`, `UNLICENSED`, and the no-publication policy remain unchanged.
+
+User-experience changes:
+
+- the handoff now exposes English and natural Spanish START-HERE guides with reciprocal language links;
+- English and Spanish private-beta terms carry the same proprietary evaluation conditions and legal-advice disclaimer;
+- Codex onboarding uses the validated `codex mcp add/list/get/remove` CLI flow, while Cursor retains its stdio JSON example;
+- guidance notes that environment values may be hidden, existing clients may need reconnect/restart, and changes to a process-level `PCW_CONTEXT_ROOT` do not retarget an already-running server;
+- tested Codex Desktop and Codex-in-IntelliJ behavior is described without guaranteeing all client versions;
+- `docs/daily-use.md` and `docs/daily-use-ES.md` cover new/same/broken sessions, checkpoint timing, long context windows, and `PCW_CONTINUITY_STALE` reconciliation;
+- `docs/adopting-existing-session.md` defines a human-reviewed propose-then-write migration, manual continuity transition, and generalized clean cross-client reconstruction;
+- `docs/lifecycle.md` separates software, MCP registration, and durable user contexts; it covers disable, uninstall, reinstall, upgrade, Windows open-process `EPERM` warnings, and context preservation;
+- durable workstream naming, non-transcript checkpoints, exclusion of transient checkpoint mechanics, and local-only path hints are explicitly documented;
+- multiple chats can read independently, concurrent same-workstream writes remain optimistic, and one registration still maps to one root;
+- separate projects currently use multiple named PCW registrations; no multi-project feature or automatic checkpointing was added.
+
+Templates and context creation:
+
+- `templates/pcw-minimal.yml` provides one inventory plus one continuity-only workstream;
+- the minimal physical layout is `pcw.yml`, `inventory.md`, and `continuity/WORKSTREAM.md`;
+- specialized workstream context and shared context are correctly described as optional;
+- `templates/continuity.md` warns against persisting transcript, approval status, or checkpoint mechanics;
+- inventory remains aligned with searchable level-three (`###`) sections;
+- all four templates are directly visible in the handoff ZIP as well as in the npm package.
+
+Package and handoff verification:
+
+- the npm allowlist includes both START-HERE files, both terms files, daily-use guides, adoption/lifecycle guides, templates, public sample, existing public docs, and compiled runtime;
+- the ZIP root contains both onboarding files, both terms files, checksums, package tarball, `templates/`, `sample-context/`, and selected `docs/`;
+- the package lifecycle smoke installs the tarball, exercises PCW, uninstalls it, proves the external context is byte-for-byte unchanged, reinstalls, and reads the persisted checkpoint again;
+- handoff verification extracts a fresh ZIP, installs only its tarball in an external temporary directory, and validates version/help, 12 tools, project/workstreams, inventory, source read, continuity, update, backup, and stale protection;
+- final package/handoff scans reject private project names, developer paths, credentials, source/tests, development continuity, and Git metadata;
+- no generated `.pcw/history`, temporary installation, ZIP, or tarball is tracked by Git.
+
+Final local beta.2 artifact:
+
+```text
+ZIP: PCW-MCP-0.2.0-beta.2-PRIVATE-BETA.zip
+ZIP size: 62,671 bytes
+ZIP SHA-256: 979829dcf9fa729246f4c6e1d4f12b0efa94678071d72d6d5a5f88a1d9f220dc
+
+tarball: package/pcw-mcp-0.2.0-beta.2.tgz
+tarball size: 35,000 bytes
+tarball SHA-256: 915112b5505b8e4389f62f802d142a221a7e19c2f812b6fe4a63961612e9c29b
+```
+
+Validation results:
+
+```text
+npm run build: passed
+standard suite: 151 passed, 0 failed
+packaged install/lifecycle smoke: 2 passed, 0 failed
+extracted handoff smoke: 1 passed, 0 failed
+total validations: 154 passed, 0 failed
+```
+
+The standard and packaged suites were each exercised at least twice during beta.2 work. Node 22.x/24.x CI results for the final commit are reported in the completion response after push.
+
+Recommended next action:
+
+- owner reviews the beta.2 ZIP and bilingual terms;
+- perform a second-laptop usability retest focused on Spanish onboarding, Codex CLI registration, creating a minimal context, adopting an existing session, and uninstall/reinstall persistence;
+- collect feedback before deciding whether to create annotated tag `v0.2.0-beta.2`;
+- do not publish, transmit, tag, add multi-project support, or automate checkpoints without explicit approval.
+
+The final Block 16 commit hash is reported in the completion response and can be recovered with `git log -1 --oneline`.
