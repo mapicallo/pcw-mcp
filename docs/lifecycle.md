@@ -1,5 +1,7 @@
 # Installation And Lifecycle
 
+[Español](lifecycle-ES.md)
+
 Keep these three things separate:
 
 ```text

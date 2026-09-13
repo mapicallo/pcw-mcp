@@ -1,5 +1,7 @@
 # Adopt An Existing AI Session
 
+[Español](adopting-existing-session-ES.md)
+
 PCW can be introduced after a project or AI conversation has already accumulated useful temporary state. The first adoption should be reviewed rather than written automatically.
 
 ## Phase 1: Propose, Do Not Write

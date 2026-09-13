@@ -1386,3 +1386,53 @@ Recommended next action:
 - do not publish, transmit, tag, add multi-project support, or automate checkpoints without explicit approval.
 
 The final Block 16 commit hash is reported in the completion response and can be recovered with `git log -1 --oneline`.
+
+## PCW 0.2.0-beta.2 Spanish Localization Pre-Freeze Update
+
+Scope:
+
+```text
+Complete the essential Spanish human-facing beta documentation found missing during the second-laptop UX retest.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `docs: complete Spanish PCW beta onboarding`.
+
+Second-laptop UX feedback and localization:
+
+- the beta.2 second-laptop UX retest found the Spanish onboarding clear and functional, with two remaining English-only essential guides;
+- `docs/adopting-existing-session-ES.md` now covers durable workstream naming, propose-before-write review, current-SHA reread, complete-document replacement, optimistic concurrency, read-back verification, manual-note migration, and the separation between durable PCW state and local path references;
+- `docs/lifecycle-ES.md` now covers installation, registration, disconnect, uninstall, reinstall, upgrade, context ownership, `.pcw/history`, Windows `EPERM`, root reload behavior, concurrent chats, and the current multiple-registration workaround for separate projects;
+- the two English guides link to their Spanish counterparts and each Spanish guide links back to English;
+- `START-HERE-ES.md` links directly to the Spanish daily-use, adoption, and lifecycle guides while retaining English technical references where no translation exists;
+- no runtime, MCP tool, error-code, schema, filesystem, continuity, inventory, reader, transport, or dependency behavior changed.
+
+Packaging and verification:
+
+- package and handoff allowlists include both English and Spanish adoption/lifecycle documents;
+- focused tests validate required documents, reciprocal links, extracted-ZIP link targets, protocol identifiers, lifecycle semantics, and absence of private names or development paths;
+- standard suite: 152 passed, 0 failed;
+- packaged install/lifecycle smoke: 2 passed, 0 failed;
+- extracted handoff smoke: 1 passed, 0 failed;
+- total automated validations: 155 passed, 0 failed;
+- `npm run build`, `npm test`, `npm run verify:beta`, and `npm run package:private-beta` passed;
+- Node 22.x/24.x CI for the final commit is reported in the completion response after push.
+
+Regenerated beta.2 candidate:
+
+```text
+ZIP: PCW-MCP-0.2.0-beta.2-PRIVATE-BETA.zip
+ZIP size: 68,606 bytes
+ZIP SHA-256: 632c457b668cfdfb9e6277821ca9232df1e069233bbba579255e80ee0f18f1f8
+
+tarball: package/pcw-mcp-0.2.0-beta.2.tgz
+tarball size: 37,388 bytes
+tarball SHA-256: 7e59fc326ebffa8c09e6dfbae18ef13584999dff5c49fa797d5e43cf3d81e2f9
+```
+
+Freeze status and next action:
+
+- annotated `v0.2.0-beta.1` remains untouched on `8c11c5ef48c1d5abf720d7fee3940b1f52b268fc`;
+- software version remains `0.2.0-beta.2` and no `v0.2.0-beta.2` tag was created;
+- artifacts remain ignored and were not committed or transmitted;
+- recommended next action: owner reviews the regenerated ZIP, Spanish guides, and checksum, confirms the second-laptop feedback is resolved, then explicitly approves the final freeze and optional annotated `v0.2.0-beta.2` tag;
+- do not tag, publish, transmit, or begin another feature block automatically.

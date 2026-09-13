@@ -109,10 +109,11 @@ Actualiza en PCW el checkpoint de BACKEND. Vuelve a leer primero la continuidad 
 
 ## Guías siguientes
 
-- `docs/daily-use-ES.md`: sesiones normales, checkpoints, chats rotos y escrituras obsoletas;
-- `docs/adopting-existing-session.md`: migración segura de una conversación existente;
-- `docs/lifecycle.md`: desactivación, desinstalación, reinstalación, actualización y varios proyectos;
-- `docs/runtime.md`: detalles de la raíz de contexto y configuración de clientes.
+- [Uso diario](docs/daily-use-ES.md): sesiones normales, checkpoints, chats rotos y escrituras obsoletas;
+- [Adoptar una sesión existente](docs/adopting-existing-session-ES.md): migración segura de una conversación existente;
+- [Ciclo de vida](docs/lifecycle-ES.md): desactivación, desinstalación, reinstalación, actualización y varios proyectos;
+- [Runtime](docs/runtime.md): detalles de la raíz de contexto y configuración de clientes;
+- [Configuración de pcw.yml](docs/pcw-yml.md) y [herramientas MCP](docs/mcp-tools.md): referencia técnica en inglés.
 
 ## Seguridad
 

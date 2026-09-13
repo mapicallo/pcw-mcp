@@ -151,7 +151,9 @@ test("extracted private-beta ZIP installs and operates independently", async () 
       `${bundleName}/docs/daily-use.md`,
       `${bundleName}/docs/daily-use-ES.md`,
       `${bundleName}/docs/adopting-existing-session.md`,
-      `${bundleName}/docs/lifecycle.md`
+      `${bundleName}/docs/adopting-existing-session-ES.md`,
+      `${bundleName}/docs/lifecycle.md`,
+      `${bundleName}/docs/lifecycle-ES.md`
     ]) {
       assert.ok(archiveEntries.includes(required), `ZIP contains ${required}`);
     }
@@ -185,6 +187,27 @@ test("extracted private-beta ZIP installs and operates independently", async () 
       for (const pattern of forbiddenContent) {
         assert.doesNotMatch(content, pattern, `forbidden content in ${entry}`);
       }
+    }
+
+    const spanishStart = await readFile(join(bundleRoot, "START-HERE-ES.md"), "utf8");
+    for (const target of [
+      "docs/daily-use-ES.md",
+      "docs/adopting-existing-session-ES.md",
+      "docs/lifecycle-ES.md"
+    ]) {
+      assert.match(spanishStart, new RegExp(`\\]\\(${target.replace(".", "\\.")}\\)`));
+      await access(join(bundleRoot, ...target.split("/")));
+    }
+
+    const bilingualPairs = [
+      ["adopting-existing-session.md", "adopting-existing-session-ES.md"],
+      ["lifecycle.md", "lifecycle-ES.md"]
+    ];
+    for (const [englishName, spanishName] of bilingualPairs) {
+      const english = await readFile(join(bundleRoot, "docs", englishName), "utf8");
+      const spanish = await readFile(join(bundleRoot, "docs", spanishName), "utf8");
+      assert.match(english, new RegExp(spanishName.replace(".", "\\.")));
+      assert.match(spanish, new RegExp(englishName.replace(".", "\\.")));
     }
 
     const sums = await readFile(join(bundleRoot, "SHA256SUMS.txt"), "utf8");

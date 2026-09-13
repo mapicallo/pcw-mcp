@@ -24,7 +24,9 @@ const expectedFiles = [
   "docs/daily-use.md",
   "docs/daily-use-ES.md",
   "docs/adopting-existing-session.md",
+  "docs/adopting-existing-session-ES.md",
   "docs/lifecycle.md",
+  "docs/lifecycle-ES.md",
   "templates",
   "examples/sample-context",
   "PRIVATE-BETA-TERMS.md",
@@ -76,6 +78,50 @@ test("private beta terms preserve the proprietary evaluation contract", async ()
   assert.match(spanishTerms, /evaluación y prueba privadas/i);
   assert.match(spanishTerms, /no sustituyen al asesoramiento jurídico profesional/i);
 });
+test("essential Spanish onboarding guides are complete, linked, and public-safe", async () => {
+  const spanishStart = await readFile(resolve(repositoryRoot, "docs", "START-HERE-ES.md"), "utf8");
+  const adoptionEnglish = await readFile(resolve(repositoryRoot, "docs", "adopting-existing-session.md"), "utf8");
+  const adoptionSpanish = await readFile(resolve(repositoryRoot, "docs", "adopting-existing-session-ES.md"), "utf8");
+  const lifecycleEnglish = await readFile(resolve(repositoryRoot, "docs", "lifecycle.md"), "utf8");
+  const lifecycleSpanish = await readFile(resolve(repositoryRoot, "docs", "lifecycle-ES.md"), "utf8");
+
+  for (const target of [
+    "docs/daily-use-ES.md",
+    "docs/adopting-existing-session-ES.md",
+    "docs/lifecycle-ES.md",
+    "docs/runtime.md",
+    "docs/pcw-yml.md",
+    "docs/mcp-tools.md"
+  ]) {
+    assert.match(spanishStart, new RegExp(target.replace(".", "\\.")));
+    await readFile(resolve(repositoryRoot, target), "utf8");
+  }
+
+  assert.match(adoptionEnglish, /adopting-existing-session-ES\.md/);
+  assert.match(adoptionSpanish, /adopting-existing-session\.md/);
+  assert.match(lifecycleEnglish, /lifecycle-ES\.md/);
+  assert.match(lifecycleSpanish, /lifecycle\.md/);
+  for (const identifier of [
+    "get_continuity",
+    "update_continuity",
+    "expectedSha256",
+    "PCW_CONTINUITY_STALE",
+    "pcw.yml"
+  ]) {
+    assert.match(adoptionSpanish, new RegExp(identifier));
+  }
+  assert.match(adoptionSpanish, /documento canónico de continuidad COMPLETO/i);
+  assert.match(lifecycleSpanish, /datos duraderos propiedad del usuario/i);
+  assert.match(lifecycleSpanish, /EPERM/);
+  assert.match(lifecycleSpanish, /concurrencia optimista/i);
+
+  const localizedContent = `${adoptionSpanish}\n${lifecycleSpanish}`;
+  assert.doesNotMatch(
+    localizedContent,
+    /\bRMMS\b|\bIndra\b|C:\\rmms-context|C:\\code\\pcw-mcp|C:\\Users\\/i
+  );
+});
+
 test("npm pack dry-run excludes development and private-beta state", async () => {
   const command = process.platform === "win32"
     ? process.env.ComSpec ?? "cmd.exe"
@@ -101,7 +147,9 @@ test("npm pack dry-run excludes development and private-beta state", async () =>
   assert.ok(paths.includes("docs/daily-use.md"));
   assert.ok(paths.includes("docs/daily-use-ES.md"));
   assert.ok(paths.includes("docs/adopting-existing-session.md"));
+  assert.ok(paths.includes("docs/adopting-existing-session-ES.md"));
   assert.ok(paths.includes("docs/lifecycle.md"));
+  assert.ok(paths.includes("docs/lifecycle-ES.md"));
   assert.ok(paths.includes("docs/runtime.md"));
   assert.ok(paths.includes("docs/private-beta.md"));
   assert.ok(paths.includes("templates/pcw.yml"));

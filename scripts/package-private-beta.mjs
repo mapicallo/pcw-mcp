@@ -122,7 +122,9 @@ try {
     "daily-use.md",
     "daily-use-ES.md",
     "adopting-existing-session.md",
-    "lifecycle.md"
+    "adopting-existing-session-ES.md",
+    "lifecycle.md",
+    "lifecycle-ES.md"
   ]) {
     await cp(join(repositoryRoot, "docs", document), join(docsDirectory, document));
   }
