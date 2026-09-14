@@ -16,6 +16,16 @@ Name workstreams after the durable line of work, such as `BACKEND`, `OBSERVABILI
 
 Work normally. Search the inventory and read selected sources when durable context is needed; do not load every source by default.
 
+## Create A Workstream
+
+```text
+Create a PCW workstream named PLATFORM-LAB with specialized context. Its initial objective is to validate the fictional platform workflow.
+```
+
+`create_workstream` uses a safe generated layout and makes the result visible without a server restart. Omit specialized context for the default continuity-only mode. Automatic names are 1-64 ASCII letters, digits, hyphens, or underscores, starting with a letter or digit. Use manual `pcw.yml` configuration only when a custom physical layout is required.
+
+Different chats connected to the same context can immediately use different durable workstreams. Creation does not bind a workstream to its originating chat.
+
 ## Checkpoint
 
 Create a checkpoint at meaningful milestones: a completed task, important commit or review, durable decision, rejected approach, blocker, end of day, long context window, or before switching clients.

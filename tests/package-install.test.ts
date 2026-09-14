@@ -30,6 +30,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const publicExampleRoot = join(repositoryRoot, "examples", "sample-context");
 
 const expectedToolNames = [
+  "create_workstream",
   "get_project_info",
   "list_workstreams",
   "get_workstream_info",
@@ -322,6 +323,63 @@ test("packed PCW installs and operates independently from repository sources", a
         assert.equal(inventory.data.matches[0].title, "Backend API Notes");
         assert.match(source.data.text, /do not reach persistence/);
         assert.match(before.data.continuity, /Define pagination/);
+
+        const created = await callTool<{
+          workstream: string;
+          mode: string;
+          continuityPath: string;
+          contextPath: string | null;
+          configBackupPath: string;
+          created: boolean;
+          initialContinuitySha256: string;
+        }>(client, "create_workstream", {
+          name: "PACKAGE-LAB",
+          mode: "with-context",
+          initialObjective: "Validate workstream creation from the installed package."
+        });
+        assert.equal(created.isError, false);
+        assert.deepEqual(
+          {
+            workstream: created.data.workstream,
+            mode: created.data.mode,
+            continuityPath: created.data.continuityPath,
+            contextPath: created.data.contextPath,
+            created: created.data.created
+          },
+          {
+            workstream: "PACKAGE-LAB",
+            mode: "with-context",
+            continuityPath: "continuity/PACKAGE-LAB.md",
+            contextPath: "workstreams/PACKAGE-LAB",
+            created: true
+          }
+        );
+        assert.match(created.data.initialContinuitySha256, /^[a-f0-9]{64}$/);
+        await access(join(contextRoot, created.data.continuityPath));
+        await access(join(contextRoot, created.data.contextPath!));
+        await access(join(contextRoot, created.data.configBackupPath));
+
+        const createdWorkstreams = await callTool<Array<{ name: string }>>(
+          client,
+          "list_workstreams"
+        );
+        const createdContinuity = await callTool<{ continuity: string }>(
+          client,
+          "get_continuity",
+          { name: "package-lab" }
+        );
+        assert.deepEqual(
+          createdWorkstreams.data.map((workstream) => workstream.name),
+          ["BACKEND", "OPERATIONS", "PACKAGE-LAB"]
+        );
+        assert.match(
+          createdContinuity.data.continuity,
+          /Validate workstream creation from the installed package/
+        );
+        assert.match(
+          await readFile(join(contextRoot, "pcw.yml"), "utf8"),
+          /PACKAGE-LAB/
+        );
 
         const winningContent = "# BACKEND\n\n## Current state\n\nPackaged smoke update wins.\n";
         const update = await callTool<{

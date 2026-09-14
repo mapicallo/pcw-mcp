@@ -13,6 +13,7 @@ import {
   assertExistingPathInsideBase,
   resolveConfiguredPath
 } from "../../filesystem/paths.js";
+import { createWorkstream } from "../../workstreams/workstream-service.js";
 import { PCW_ERROR_CODES } from "../error-codes.js";
 import { withMcpErrorBoundary } from "../error-mapper.js";
 import { codedErrorResponse, jsonResponse } from "../responses.js";
@@ -21,6 +22,34 @@ export function registerWorkstreamTools(
   server: McpServer,
   contextRoot: string
 ): void {
+  server.registerTool(
+    "create_workstream",
+    {
+      description:
+        "Creates a safely named PCW workstream with generated continuity and optional specialized context, backing up pcw.yml before atomic replacement",
+      inputSchema: z.object({
+        name: z.string().describe(
+          "Workstream name using 1-64 ASCII letters, digits, hyphens, or underscores"
+        ),
+        mode: z.enum(["continuity-only", "with-context"])
+          .default("continuity-only")
+          .describe("Whether to create only continuity or also specialized context"),
+        initialObjective: z.string()
+          .max(2_000)
+          .optional()
+          .describe("Optional initial durable objective for the workstream")
+      })
+    },
+    async ({ name, mode, initialObjective }) =>
+      withMcpErrorBoundary(async () => jsonResponse(
+        await createWorkstream(contextRoot, {
+          name,
+          mode,
+          initialObjective
+        })
+      ))
+  );
+
   async function getPathStatus(path: string | null) {
     if (!path) {
       return {

@@ -21,7 +21,7 @@ From a directory outside the kit:
 mkdir pcw-test
 cd pcw-test
 npm init -y
-npm install "<path-to-kit>\package\pcw-mcp-0.2.0-beta.2.tgz" --omit=dev
+npm install "<path-to-kit>\package\pcw-mcp-0.2.0-beta.3.tgz" --omit=dev
 ```
 
 ```powershell
@@ -88,6 +88,18 @@ my-context/
 Specialized workstream context and shared context are optional. A workstream can have continuity without either. Name workstreams after durable work such as `BACKEND` or `OBSERVABILITY`, never after a chat or session.
 
 See `docs/pcw-yml.md` for the exact schema and `templates/pcw.yml` for a fuller example.
+
+## Create A New Workstream
+
+For the normal case, ask the connected AI client to use PCW instead of editing `pcw.yml` manually:
+
+```text
+Create a PCW workstream named PLATFORM-LAB with specialized context. Its initial objective is to validate the fictional platform workflow.
+```
+
+The AI may call `create_workstream` with `mode: "with-context"`. PCW creates `continuity/PLATFORM-LAB.md`, `workstreams/PLATFORM-LAB/`, a checked configuration entry, and an exact pre-change config backup. The default `"continuity-only"` mode creates only continuity. Manual `pcw.yml` editing remains supported for advanced custom physical layouts.
+
+Any chat connected to the same PCW context can discover the new workstream immediately. The workstream belongs to the durable context, not to the chat that created it; for example, one chat can continue `BACKEND` while another continues `PLATFORM-LAB`.
 
 ## First Prompts
 

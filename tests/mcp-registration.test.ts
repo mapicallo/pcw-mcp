@@ -4,6 +4,7 @@ import test from "node:test";
 import { fixtureRoot, withServer } from "./mcp-test-client.js";
 
 const expectedToolNames = [
+  "create_workstream",
   "get_project_info",
   "list_workstreams",
   "get_workstream_info",
@@ -35,6 +36,22 @@ test("important tool descriptions and input-schema constraints are preserved", a
     const listSources = tools.get("list_sources");
     const searchInventory = tools.get("search_inventory");
     const updateContinuity = tools.get("update_continuity");
+    const createWorkstream = tools.get("create_workstream");
+
+    assert.deepEqual(createWorkstream?.inputSchema.required, ["name"]);
+    assert.deepEqual(
+      createWorkstream?.inputSchema.properties?.mode,
+      {
+        type: "string",
+        enum: ["continuity-only", "with-context"],
+        default: "continuity-only",
+        description: "Whether to create only continuity or also specialized context"
+      }
+    );
+    assert.equal(
+      createWorkstream?.inputSchema.properties?.initialObjective.maxLength,
+      2_000
+    );
 
     assert.equal(
       listSources?.description,

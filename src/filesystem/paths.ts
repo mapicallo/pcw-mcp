@@ -1,5 +1,6 @@
-import { realpath } from "node:fs/promises";
+import { mkdir, realpath } from "node:fs/promises";
 import {
+  dirname,
   isAbsolute,
   relative,
   resolve,
@@ -77,6 +78,49 @@ export async function assertExistingPathInsideBase(
   ]);
 
   ensureInsideBase(realBasePath, realCandidatePath);
+}
+
+export async function ensureDirectoryInsideBase(
+  basePath: string,
+  directoryPath: string
+): Promise<boolean> {
+  const normalizedDirectory = ensureInsideBase(basePath, directoryPath);
+
+  try {
+    await assertExistingPathInsideBase(basePath, normalizedDirectory);
+    return false;
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      !("code" in error) ||
+      error.code !== "ENOENT"
+    ) {
+      throw error;
+    }
+  }
+
+  const parent = dirname(normalizedDirectory);
+  if (parent === normalizedDirectory) {
+    throw new PcwPathError();
+  }
+  await ensureDirectoryInsideBase(basePath, parent);
+
+  let created = false;
+  try {
+    await mkdir(normalizedDirectory);
+    created = true;
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      !("code" in error) ||
+      error.code !== "EEXIST"
+    ) {
+      throw error;
+    }
+  }
+
+  await assertExistingPathInsideBase(basePath, normalizedDirectory);
+  return created;
 }
 
 export async function assertExistingSourcePath(

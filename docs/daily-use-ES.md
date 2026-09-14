@@ -16,6 +16,16 @@ Nombra los workstreams por la línea de trabajo duradera, por ejemplo `BACKEND`,
 
 Trabaja con normalidad. Busca en el inventario y lee fuentes concretas cuando necesites contexto duradero; no cargues todas las fuentes por defecto.
 
+## Crea un workstream
+
+```text
+Crea en PCW un nuevo workstream llamado PLATFORM-LAB con contexto especializado. Su objetivo inicial es validar el flujo ficticio de plataforma.
+```
+
+`create_workstream` usa una estructura generada segura y hace visible el resultado sin reiniciar el servidor. Omite el contexto especializado para usar el modo predeterminado de solo continuidad. Los nombres automáticos admiten entre 1 y 64 letras ASCII, dígitos, guiones o guiones bajos, y empiezan por una letra o un dígito. Edita `pcw.yml` manualmente solo cuando necesites una estructura física personalizada.
+
+Los chats conectados al mismo contexto pueden usar inmediatamente workstreams duraderos distintos. La creación no vincula el workstream al chat que la inició.
+
 ## Checkpoint
 
 Crea un checkpoint en hitos relevantes: tarea terminada, commit o revisión importante, decisión duradera, enfoque descartado, bloqueo, final del día, ventana de contexto larga o antes de cambiar de cliente.

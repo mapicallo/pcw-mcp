@@ -2,10 +2,11 @@
 
 All tools are exposed by server `pcw-mcp`. Structured success and error payloads are serialized as JSON in one MCP text content item unless noted otherwise. Inputs shown as strings require at least one character where marked `min 1`.
 
-The private-beta contract contains exactly 12 tools. The POC-only `hello` tool was removed before the beta freeze.
+The private-beta contract contains exactly 13 tools. The POC-only `hello` tool was removed before the beta freeze.
 
 | Tool | Type | Purpose |
 | --- | --- | --- |
+| `create_workstream` | Structural write | Safely create a configured workstream and initial continuity. |
 | `get_project_info` | Read | Return configured project and inventory metadata. |
 | `list_workstreams` | Discovery | List configured logical workstreams. |
 | `get_workstream_info` | Discovery | Return configuration and filesystem status for one workstream. |
@@ -20,6 +21,18 @@ The private-beta contract contains exactly 12 tools. The POC-only `hello` tool w
 | `update_continuity` | Write | Atomically replace continuity using optimistic concurrency. |
 
 ## Project And Workstreams
+
+### create_workstream
+
+Input:
+
+- `name: string`, using 1-64 ASCII letters, digits, hyphens, or underscores and starting with a letter or digit;
+- optional `mode: "continuity-only" | "with-context"`, default `"continuity-only"`;
+- optional `initialObjective: string`, maximum 2,000 characters.
+
+Result: `workstream`, `mode`, generated `continuityPath`, optional generated `contextPath`, `configBackupPath`, `created: true`, and lowercase hexadecimal `initialContinuitySha256`.
+
+The tool rejects case-insensitive duplicates, unsafe names, and preexisting generated targets. It creates `continuity/<NAME>.md`; `with-context` additionally creates `workstreams/<NAME>/`. Before atomically replacing `pcw.yml`, it stores the exact prior configuration under `.pcw/history/config/`. It does not modify inventory or adopt existing files.
 
 ### get_project_info
 
@@ -125,7 +138,11 @@ Only configured Markdown continuity files can be updated. A stale write returns 
 Expected failures set `isError: true` and add a stable `code` without removing existing human-readable or diagnostic fields:
 
 - `PCW_CONFIG_INVALID`: unreadable, malformed, or structurally invalid `pcw.yml`;
+- `PCW_CONFIG_STALE`: `pcw.yml` changed during structural creation;
 - `PCW_WORKSTREAM_NOT_FOUND`: requested workstream is unknown;
+- `PCW_WORKSTREAM_ALREADY_EXISTS`: the requested logical name already exists case-insensitively;
+- `PCW_WORKSTREAM_NAME_INVALID`: the automatic-creation name rule was not met;
+- `PCW_WORKSTREAM_CREATE_CONFLICT`: a target collision, active config writer, write failure, or incomplete rollback prevented safe creation;
 - `PCW_CONTEXT_NOT_CONFIGURED`: shared/workstream context is unknown or unavailable;
 - `PCW_PATH_UNSAFE`: a configured or requested path violates containment;
 - `PCW_SOURCE_ERROR`: source is missing, is not a file, has an unsupported type, or cannot be read;

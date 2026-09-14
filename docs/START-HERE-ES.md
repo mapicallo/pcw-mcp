@@ -21,7 +21,7 @@ Desde un directorio situado fuera del kit:
 mkdir pcw-test
 cd pcw-test
 npm init -y
-npm install "<ruta-al-kit>\package\pcw-mcp-0.2.0-beta.2.tgz" --omit=dev
+npm install "<ruta-al-kit>\package\pcw-mcp-0.2.0-beta.3.tgz" --omit=dev
 ```
 
 ```powershell
@@ -88,6 +88,18 @@ my-context/
 El contexto especializado del workstream y el contexto compartido son opcionales. Un workstream puede tener continuidad sin ninguno de ellos. Nombra los workstreams por trabajo duradero, como `BACKEND` u `OBSERVABILITY`, nunca por un chat o una sesión.
 
 Consulta `docs/pcw-yml.md` para ver el esquema exacto y `templates/pcw.yml` para un ejemplo más completo.
+
+## Crea un nuevo workstream
+
+Para el caso normal, pide al cliente de IA conectado que use PCW en lugar de editar `pcw.yml` manualmente:
+
+```text
+Crea en PCW un nuevo workstream llamado PLATFORM-LAB con contexto especializado. Su objetivo inicial es validar el flujo ficticio de plataforma.
+```
+
+La IA puede llamar a `create_workstream` con `mode: "with-context"`. PCW crea `continuity/PLATFORM-LAB.md`, `workstreams/PLATFORM-LAB/`, una entrada de configuración validada y una copia exacta de la configuración anterior. El modo predeterminado `"continuity-only"` crea solo la continuidad. La edición manual de `pcw.yml` sigue disponible para diseños físicos personalizados avanzados.
+
+Cualquier chat conectado al mismo contexto PCW puede descubrir el nuevo workstream inmediatamente. El workstream pertenece al contexto duradero, no al chat que lo creó; por ejemplo, un chat puede continuar `BACKEND` mientras otro continúa `PLATFORM-LAB`.
 
 ## Primeras peticiones
 

@@ -62,7 +62,7 @@ An optional path object may exist without `path`; tools then treat that resource
 
 ## Version Distinction
 
-The server software version is currently `0.2.0-beta.2` and comes from `package.json`.
+The server software version is currently `0.2.0-beta.3` and comes from `package.json`.
 
 The independent `pcw.yml.version` field remains optional and accepts strings or numbers because that is the validated POC behavior. A future schema migration should define a required canonical integer such as `version: 1`, but that would be an explicit compatibility change and is not part of this baseline.
 
@@ -75,10 +75,16 @@ Configuration structure is validated by Zod. Filesystem safety is enforced separ
 ## Operational Semantics
 
 - A workstream may have context, continuity, both, or neither.
-- Continuity does not default to `continuity/<name>.md`; its path must be configured.
+- Manually configured continuity has no inferred default; its path must be explicit.
 - Shared sections and workstreams are not inferred from physical folders.
 - Inventory is one configured document, not a source crawler or database.
 - Configuration edits become visible without restarting the server.
+
+## Automatic Workstream Convention
+
+`create_workstream` deliberately does not accept filesystem paths. For a safe name `PLATFORM-LAB`, continuity-only creation adds `continuity/PLATFORM-LAB.md`; `with-context` also creates `workstreams/PLATFORM-LAB/`. The matching paths are written to a new `workstreams.PLATFORM-LAB` entry.
+
+This convention applies only to automatic creation. Existing and manually edited contexts may map logical names to different physical paths, provided those paths remain inside the PCW root. Automatic creation does not modify the inventory.
 
 ## Minimal Useful Context
 

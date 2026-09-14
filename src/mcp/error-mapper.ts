@@ -11,6 +11,12 @@ import {
 } from "../continuity/continuity-service.js";
 import { PcwPathError } from "../filesystem/paths.js";
 import { InventoryNotFileError } from "../inventory/inventory-service.js";
+import {
+  PcwConfigStaleError,
+  WorkstreamAlreadyExistsError,
+  WorkstreamCreateConflictError,
+  WorkstreamNameInvalidError
+} from "../workstreams/workstream-service.js";
 import { PCW_ERROR_CODES } from "./error-codes.js";
 import { codedErrorResponse } from "./responses.js";
 
@@ -61,6 +67,42 @@ export function unexpectedErrorResponse(error: unknown): CallToolResult {
   if (isUnsafePathError(error)) {
     return codedErrorResponse(PCW_ERROR_CODES.PATH_UNSAFE, {
       error: safeErrorDetails(error)
+    });
+  }
+
+  if (error instanceof WorkstreamNameInvalidError) {
+    return codedErrorResponse(PCW_ERROR_CODES.WORKSTREAM_NAME_INVALID, {
+      error: error.message,
+      name: error.requestedName,
+      rule: error.rule
+    });
+  }
+
+  if (error instanceof WorkstreamAlreadyExistsError) {
+    return codedErrorResponse(PCW_ERROR_CODES.WORKSTREAM_ALREADY_EXISTS, {
+      error: error.message,
+      name: error.requestedName,
+      existingWorkstream: error.existingWorkstream
+    });
+  }
+
+  if (error instanceof PcwConfigStaleError) {
+    return codedErrorResponse(PCW_ERROR_CODES.CONFIG_STALE, {
+      error: error.message,
+      expectedSha256: error.expectedSha256,
+      currentSha256: error.currentSha256,
+      action: "Retry create_workstream against the current pcw.yml."
+    });
+  }
+
+  if (error instanceof WorkstreamCreateConflictError) {
+    return codedErrorResponse(PCW_ERROR_CODES.WORKSTREAM_CREATE_CONFLICT, {
+      error: error.message,
+      workstream: error.requestedName,
+      ...(error.path ? { path: error.path } : {}),
+      ...(error.rollbackFailures.length > 0
+        ? { rollbackFailures: error.rollbackFailures }
+        : {})
     });
   }
 

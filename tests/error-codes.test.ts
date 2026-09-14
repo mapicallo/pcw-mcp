@@ -20,10 +20,10 @@ function payload(response: ReturnType<typeof unexpectedErrorResponse>) {
   return JSON.parse(item.text) as Record<string, unknown>;
 }
 
-test("public PCW error codes are unique and frozen", () => {
+test("public PCW error codes preserve the frozen beta.2 set and add beta.3 codes", () => {
   const codes = Object.values(PCW_ERROR_CODES);
   assert.equal(new Set(codes).size, codes.length);
-  assert.deepEqual(codes.sort(), [
+  const beta2Codes = [
     "PCW_CONFIG_INVALID",
     "PCW_CONTEXT_NOT_CONFIGURED",
     "PCW_CONTINUITY_INVALID",
@@ -34,6 +34,16 @@ test("public PCW error codes are unique and frozen", () => {
     "PCW_PATH_UNSAFE",
     "PCW_SOURCE_ERROR",
     "PCW_WORKSTREAM_NOT_FOUND"
+  ];
+  for (const code of beta2Codes) {
+    assert.ok(codes.includes(code));
+  }
+  assert.deepEqual(codes.sort(), [
+    ...beta2Codes,
+    "PCW_CONFIG_STALE",
+    "PCW_WORKSTREAM_ALREADY_EXISTS",
+    "PCW_WORKSTREAM_CREATE_CONFLICT",
+    "PCW_WORKSTREAM_NAME_INVALID"
   ].sort());
 });
 

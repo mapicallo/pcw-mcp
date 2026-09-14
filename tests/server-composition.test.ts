@@ -18,6 +18,7 @@ import {
 } from "./mcp-test-client.js";
 
 const expectedToolNames = [
+  "create_workstream",
   "get_project_info",
   "list_workstreams",
   "get_workstream_info",
@@ -97,7 +98,7 @@ test("server factory exposes the established tools and metadata in memory", asyn
     assert.equal(new Set(names).size, expectedToolNames.length);
     assert.deepEqual(connection.client.getServerVersion(), {
       name: "pcw-mcp",
-      version: "0.2.0-beta.2"
+      version: "0.2.0-beta.3"
     });
   } finally {
     await connection.close();

@@ -1436,3 +1436,77 @@ Freeze status and next action:
 - artifacts remain ignored and were not committed or transmitted;
 - recommended next action: owner reviews the regenerated ZIP, Spanish guides, and checksum, confirms the second-laptop feedback is resolved, then explicitly approves the final freeze and optional annotated `v0.2.0-beta.2` tag;
 - do not tag, publish, transmit, or begin another feature block automatically.
+
+## BLOCK 17 - PCW 0.2.0-beta.3 Safe Workstream Creation
+
+Scope:
+
+```text
+Add one safe structural capability, create_workstream, while preserving the
+frozen beta.2 contract and keeping beta.3 private, local, and untagged.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `feat: add safe PCW workstream creation`.
+
+Version and public contract:
+
+- software/package/MCP version is `0.2.0-beta.3`, derived from `package.json`;
+- the public MCP set is 13 tools: the frozen 12 plus `create_workstream`;
+- beta.1 and beta.2 annotated tags remain unchanged;
+- beta.3 is not tagged, published, released, or transmitted;
+- the existing ten error-code values remain unchanged and beta.3 adds `PCW_CONFIG_STALE`, `PCW_WORKSTREAM_ALREADY_EXISTS`, `PCW_WORKSTREAM_NAME_INVALID`, and `PCW_WORKSTREAM_CREATE_CONFLICT`.
+
+Creation contract:
+
+- input is `name`, optional `mode` (`continuity-only` by default or `with-context`), and optional `initialObjective` up to 2,000 characters;
+- output is `workstream`, `mode`, `continuityPath`, nullable `contextPath`, `configBackupPath`, `created`, and `initialContinuitySha256`;
+- automatic names use 1-64 ASCII letters, digits, hyphens, or underscores and must begin with a letter or digit;
+- name validation is specific to automatic creation and does not retroactively invalidate manually configured workstreams;
+- names and existing configured workstreams collide case-insensitively;
+- automatic paths are `continuity/<NAME>.md` and, only for `with-context`, `workstreams/<NAME>/`;
+- callers cannot provide paths, existing targets are never adopted or overwritten, and inventory is not modified;
+- the generated Markdown contains current objective/state, completed work, decisions, rejected repetition, blockers, sources, and next action without invented project facts.
+
+Structural-write safety:
+
+- `src/workstreams/workstream-service.ts` owns the typed multi-file workflow and `workstream-types.ts` owns its internal contracts;
+- YAML is loaded with the `yaml` Document API, updated through `setIn`, rendered without global key sorting, and validated through the existing Zod schema before writing; existing comments/order are preserved by the Document model where possible;
+- the exact pre-change `pcw.yml` is stored at `.pcw/history/config/<timestamp>-<sha-prefix>.yml` without overwrite;
+- an exclusive cooperative lock at `.pcw/locks/pcw-config.lock` serializes PCW structural writers;
+- the original config SHA is checked again immediately before backup/commit and a detected external edit returns `PCW_CONFIG_STALE`;
+- `pcw.yml` is replaced atomically only after continuity, optional context, validation, SHA recheck, and backup succeed;
+- failures roll back artifacts created by that operation in reverse order; incomplete rollback is returned explicitly as `PCW_WORKSTREAM_CREATE_CONFLICT`;
+- directory creation validates existing ancestors before creating descendants, including `.pcw`, preventing writes routed through preexisting external links;
+- the operation is not a true multi-file transaction or OS-level compare-and-swap. Manual/non-cooperating writers and the documented local TOCTOU window remain limitations. A process crash may leave a stale lock or partial artifacts; automatic repair and stale-lock recovery are deferred.
+
+Tests and packaging:
+
+- service tests cover both modes, exact preservation of existing config/data, schema validity, deterministic SHA, duplicates, unsafe names, target collisions, external links, external config changes, injected write failures, rollback failure, and concurrent lock contention;
+- MCP tests cover discovery/schema, 13 tools, creation through stdio, immediate use without restart, and machine-readable duplicate/name errors;
+- the clean installed-package smoke creates `PACKAGE-LAB` through compiled `dist/`, checks generated config/files/backup/continuity, verifies existing workstreams, and preserves state across uninstall/reinstall;
+- standard suite: 169 passed, 0 failed;
+- packaged install/lifecycle smoke: 2 passed, 0 failed;
+- extracted handoff smoke: 1 passed, 0 failed;
+- `npm run build`, `npm test`, `npm run verify:beta`, and `npm run package:private-beta` passed;
+- Node 22.x/24.x CI for the pushed final commit is reported in the completion response.
+
+Local ignored beta.3 artifact:
+
+```text
+ZIP: PCW-MCP-0.2.0-beta.3-PRIVATE-BETA.zip
+ZIP size: 76,323 bytes
+ZIP SHA-256: a7e199b6ddadb6da9ea5065d81af4cb68ac2265cb89b02f03e22ad7376423161
+
+tarball: package/pcw-mcp-0.2.0-beta.3.tgz
+tarball size: 42,937 bytes
+tarball SHA-256: 334ec28c0e8ad665f4e481e31f54b1e2444c9017fdf404cf18d6c288742010a4
+```
+
+Documentation and next action:
+
+- English and Spanish START-HERE/daily-use guides explain normal creation, both modes, generated physical paths, custom-layout manual editing, and cross-chat visibility;
+- contract, configuration, security, private-beta, lifecycle, and README documentation reflect beta.3 and the two deliberately narrow write capabilities;
+- final package/handoff scans reject private names, developer paths, credentials, source/tests, development continuity, and Git metadata;
+- recommended next action is authorized second-laptop validation of both creation modes, immediate cross-chat discovery, collision diagnostics, and package lifecycle;
+- after successful user validation, perform a separate release-freeze review before deciding whether to create an annotated `v0.2.0-beta.3` tag;
+- do not add delete/rename/archive, publish, transmit, or tag automatically.

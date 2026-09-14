@@ -1,6 +1,6 @@
 # PCW-MCP Private Beta Guide
 
-PCW-MCP `0.2.0-beta.2` is a local-only private-beta usability candidate. Beta.1 remains frozen and tagged; beta.2 is not tagged, published, or available through a remote transport.
+PCW-MCP `0.2.0-beta.3` is a local-only private-beta candidate. Beta.1 and beta.2 remain frozen and tagged; beta.3 is not tagged, published, or available through a remote transport.
 
 ## Prerequisites
 
@@ -75,10 +75,10 @@ Cursor-style configuration:
 3. Copy the sample or prepare a permitted PCW context.
 4. Set `--context-root` or `PCW_CONTEXT_ROOT`.
 5. Add the stdio server to Codex or Cursor.
-6. Confirm the 12 PCW tools are visible.
+6. Confirm the 13 PCW tools are visible.
 7. Ask PCW to list workstreams.
 8. Continue a workstream by reading its continuity and selecting relevant sources.
-9. Permit `update_continuity` only when a durable checkpoint is intended.
+9. Permit `create_workstream` only for deliberate structural creation and `update_continuity` only when a durable checkpoint is intended.
 
 A useful first request is: `Use PCW to list the available workstreams.` Then: `Use PCW to continue the BACKEND workstream. Reconstruct its current state before modifying anything.`
 
@@ -86,7 +86,7 @@ A useful first request is: `Use PCW to list the available workstreams.` Then: `U
 
 - Configure only context documents the tester is authorized to expose to the connected AI client/model.
 - Remember that a local PCW server may be connected to a client using a cloud model.
-- Treat `update_continuity` as writable; it replaces the complete configured Markdown document.
+- Treat `create_workstream` as a privileged structural write and `update_continuity` as a complete configured Markdown replacement.
 - History backups are stored below `.pcw/history` in the context root.
 - PCW constrains configured and requested paths, but it is not a general operating-system sandbox.
 - Do not run writable tests against the context copy inside an installed package.
@@ -108,7 +108,7 @@ This compiles, runs the standard suite, creates and clean-installs a temporary p
 
 ## Handoff Artifact
 
-The owner can build the ignored local handoff kit with `npm run package:private-beta`. The beta.2 ZIP and external SHA-256 file are written under `artifacts/private-beta/0.2.0-beta.2/`. The command verifies the candidate, extracts the ZIP, installs its exact tarball, and exercises the MCP server before retaining the artifacts.
+The owner can build the ignored local handoff kit with `npm run package:private-beta`. The beta.3 ZIP and external SHA-256 file are written under `artifacts/private-beta/0.2.0-beta.3/`. The command verifies the candidate, extracts the ZIP, installs its exact tarball, and exercises workstream creation through the installed MCP server before retaining the artifacts.
 
 The kit is for an authorized tester under `PRIVATE-BETA-TERMS.md`; this command does not publish or transmit it.
 
