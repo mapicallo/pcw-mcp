@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { platform } from "node:process";
 import test from "node:test";
+import { isMap, parseDocument } from "yaml";
 
 import { loadPcwConfig } from "../src/config/pcw-config.js";
 import { sha256Text } from "../src/filesystem/hashing.js";
@@ -123,6 +124,97 @@ test("creates specialized context only in with-context mode", async () => {
       await readFile(join(contextRoot, "continuity", "LAB-API.md"), "utf8"),
       /Define the first durable objective/
     );
+  });
+});
+
+test("converts an empty workstreams flow map to readable block style", async () => {
+  await withContext(async (contextRoot) => {
+    const configPath = join(contextRoot, "pcw.yml");
+    const originalConfig = `# project identity
+project: { id: synthetic, name: Synthetic Project } # keep project flow style
+inventory:
+  path: catalog/inventory.md
+shared_context:
+  general:
+    path: shared/general
+# durable work follows
+workstreams: {}
+`;
+    await writeFile(configPath, originalConfig, "utf8");
+    const before = (await loadPcwConfig(contextRoot)).config;
+
+    await createWorkstream(contextRoot, {
+      name: "FIRST-LAB",
+      mode: "with-context"
+    });
+
+    const updated = await readFile(configPath, "utf8");
+    const parsed = parseDocument(updated);
+    const workstreams = parsed.get("workstreams", true);
+    const created = parsed.getIn(["workstreams", "FIRST-LAB"], true);
+    const context = parsed.getIn(["workstreams", "FIRST-LAB", "context"], true);
+    const continuity = parsed.getIn(
+      ["workstreams", "FIRST-LAB", "continuity"],
+      true
+    );
+    const after = (await loadPcwConfig(contextRoot)).config;
+
+    assert.ok(isMap(workstreams));
+    assert.ok(isMap(created));
+    assert.ok(isMap(context));
+    assert.ok(isMap(continuity));
+    assert.notEqual(workstreams.flow, true);
+    assert.notEqual(created.flow, true);
+    assert.notEqual(context.flow, true);
+    assert.notEqual(continuity.flow, true);
+    assert.match(updated, /^workstreams:\n  FIRST-LAB:\n/m);
+    assert.match(
+      updated,
+      /^project: \{ id: synthetic, name: Synthetic Project \} # keep project flow style$/m
+    );
+    assert.match(updated, /^# project identity$/m);
+    assert.match(updated, /^# durable work follows$/m);
+    assert.ok(updated.indexOf("project:") < updated.indexOf("inventory:"));
+    assert.ok(updated.indexOf("inventory:") < updated.indexOf("shared_context:"));
+    assert.ok(updated.indexOf("shared_context:") < updated.indexOf("workstreams:"));
+    assert.deepEqual(after.project, before.project);
+    assert.deepEqual(after.inventory, before.inventory);
+    assert.deepEqual(after.shared_context, before.shared_context);
+    assert.deepEqual(after.workstreams?.["FIRST-LAB"], {
+      context: { path: "workstreams/FIRST-LAB" },
+      continuity: { path: "continuity/FIRST-LAB.md" }
+    });
+  });
+});
+
+test("keeps a second generated workstream in block style", async () => {
+  await withContext(async (contextRoot) => {
+    const configPath = join(contextRoot, "pcw.yml");
+    await writeFile(
+      configPath,
+      "# configured workstreams\nworkstreams: {}\n",
+      "utf8"
+    );
+
+    await createWorkstream(contextRoot, {
+      name: "FIRST-LAB",
+      mode: "with-context"
+    });
+    await createWorkstream(contextRoot, { name: "SECOND-LAB" });
+
+    const updated = await readFile(configPath, "utf8");
+    const parsed = parseDocument(updated);
+    const second = parsed.getIn(["workstreams", "SECOND-LAB"], true);
+    const config = (await loadPcwConfig(contextRoot)).config;
+
+    assert.ok(isMap(second));
+    assert.notEqual(second.flow, true);
+    assert.match(updated, /^  FIRST-LAB:\n/m);
+    assert.match(updated, /^  SECOND-LAB:\n    continuity:\n/m);
+    assert.match(updated, /^# configured workstreams$/m);
+    assert.deepEqual(config.workstreams?.["SECOND-LAB"], {
+      continuity: { path: "continuity/SECOND-LAB.md" }
+    });
   });
 });
 

@@ -1510,3 +1510,41 @@ Documentation and next action:
 - recommended next action is authorized second-laptop validation of both creation modes, immediate cross-chat discovery, collision diagnostics, and package lifecycle;
 - after successful user validation, perform a separate release-freeze review before deciding whether to create an annotated `v0.2.0-beta.3` tag;
 - do not add delete/rename/archive, publish, transmit, or tag automatically.
+
+## PCW 0.2.0-beta.3 Human-Readable YAML Pre-Freeze Fix
+
+Second-laptop validation confirmed both `create_workstream` modes, case-insensitive duplicate rejection, and invalid/traversal-style name rejection. One usability defect remained: when the source configuration contained `workstreams: {}`, the YAML Document API preserved that empty map's flow-style marker and `setIn` serialized the added workstream inline.
+
+The fix is deliberately local:
+
+- after adding the requested entry, `create_workstream` marks only the `workstreams` collection, the newly created workstream, and its generated `context`/`continuity` maps as block style;
+- unrelated flow-style collections are not normalized;
+- project, inventory, shared context, existing workstreams, comments, and document order retain the YAML library's normal preservation behavior;
+- the `pcw.yml` schema, software version `0.2.0-beta.3`, 13-tool MCP set, input/output contract, error codes, paths, backup, concurrency, and rollback semantics are unchanged.
+
+Focused regression coverage starts from `workstreams: {}`, creates a block-style first workstream, creates a block-style second workstream, checks parsed/Zod semantics, preserves comments/order, and proves that an unrelated intentional flow-style project map remains flow style.
+
+Final validation:
+
+```text
+npm run build: passed
+standard suite: 171 passed, 0 failed
+packaged install/lifecycle smoke: 2 passed, 0 failed
+extracted handoff smoke: 1 passed, 0 failed
+npm run verify:beta: passed
+npm run package:private-beta: passed
+```
+
+Regenerated ignored beta.3 candidate:
+
+```text
+ZIP: PCW-MCP-0.2.0-beta.3-PRIVATE-BETA.zip
+ZIP size: 76,428 bytes
+ZIP SHA-256: 6cf1118b5615a545990fd1658490cbd9567d6f487db776ed27a5834476c799c7
+
+tarball: package/pcw-mcp-0.2.0-beta.3.tgz
+tarball size: 43,042 bytes
+tarball SHA-256: 31525f4d58bf3ff1e76873ba3066e261aae63d8cfe3dcee68691b6eb7c1b009c
+```
+
+Commit target: `fix: keep generated PCW config human-readable`. Push `v0.2-foundation` normally, confirm Node 22/24 CI, keep beta.1/beta.2 tags untouched, and do not create `v0.2.0-beta.3` until a separate authorized release-freeze operation.

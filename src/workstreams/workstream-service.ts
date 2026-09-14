@@ -9,7 +9,7 @@ import {
 import { dirname, join } from "node:path";
 
 import writeFileAtomic from "write-file-atomic";
-import { parseDocument } from "yaml";
+import { isCollection, parseDocument } from "yaml";
 
 import {
   PcwConfigError,
@@ -129,6 +129,23 @@ function validateConfigDocument(content: string, configPath: string) {
   }
 
   return { document, config: result.data };
+}
+
+function useBlockStyleForCreatedWorkstream(
+  document: ReturnType<typeof parseDocument>,
+  workstreamName: string
+): void {
+  for (const path of [
+    ["workstreams"],
+    ["workstreams", workstreamName],
+    ["workstreams", workstreamName, "context"],
+    ["workstreams", workstreamName, "continuity"]
+  ]) {
+    const node = document.getIn(path, true);
+    if (isCollection(node)) {
+      node.flow = false;
+    }
+  }
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -322,6 +339,7 @@ export async function createWorkstream(
           continuity: { path: continuityPath }
         };
     document.setIn(["workstreams", input.name], workstreamConfig);
+    useBlockStyleForCreatedWorkstream(document, input.name);
     const updatedConfig = document.toString({ lineWidth: 0 });
     validateConfigDocument(updatedConfig, configPath);
 
