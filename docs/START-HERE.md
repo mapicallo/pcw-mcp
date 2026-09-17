@@ -21,7 +21,7 @@ From a directory outside the kit:
 mkdir pcw-test
 cd pcw-test
 npm init -y
-npm install "<path-to-kit>\package\pcw-mcp-0.2.0-beta.3.tgz" --omit=dev
+npm install "<path-to-kit>\package\pcw-mcp-0.2.0-beta.4.tgz" --omit=dev
 ```
 
 ```powershell
@@ -100,6 +100,19 @@ Create a PCW workstream named PLATFORM-LAB with specialized context. Its initial
 The AI may call `create_workstream` with `mode: "with-context"`. PCW creates `continuity/PLATFORM-LAB.md`, `workstreams/PLATFORM-LAB/`, a checked configuration entry, and an exact pre-change config backup. The default `"continuity-only"` mode creates only continuity. Manual `pcw.yml` editing remains supported for advanced custom physical layouts.
 
 Any chat connected to the same PCW context can discover the new workstream immediately. The workstream belongs to the durable context, not to the chat that created it; for example, one chat can continue `BACKEND` while another continues `PLATFORM-LAB`.
+
+## Add Context To PCW
+
+Choose the durable role before adding documents:
+
+- shared context is reusable project knowledge for several workstreams;
+- specialized workstream context belongs to one existing workstream;
+- continuity is the current durable checkpoint, not a source library;
+- inventory is the semantic map used to find relevant sources.
+
+Ask PCW to call `create_shared_context({ name: "reference" })` or `enable_workstream_context({ name: "OPERATIONS" })`. PCW creates an in-root directory and updates `pcw.yml` safely. Then an authorized human copies only approved documents into that generated directory. The agent can use `list_sources` and the appropriate `read_*_source` tool, then reread `get_inventory` and use its SHA with `update_inventory` to replace the complete reviewed inventory.
+
+PCW deliberately does not import or read arbitrary external paths through MCP. Files must first be placed inside the selected PCW root by an authorized user; this is a security boundary, not a missing general-filesystem feature.
 
 ## First Prompts
 

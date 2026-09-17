@@ -20,7 +20,7 @@ function payload(response: ReturnType<typeof unexpectedErrorResponse>) {
   return JSON.parse(item.text) as Record<string, unknown>;
 }
 
-test("public PCW error codes preserve the frozen beta.2 set and add beta.3 codes", () => {
+test("public PCW error codes preserve frozen codes and add beta.4 categories", () => {
   const codes = Object.values(PCW_ERROR_CODES);
   assert.equal(new Set(codes).size, codes.length);
   const beta2Codes = [
@@ -42,6 +42,11 @@ test("public PCW error codes preserve the frozen beta.2 set and add beta.3 codes
     ...beta2Codes,
     "PCW_CONFIG_STALE",
     "PCW_WORKSTREAM_ALREADY_EXISTS",
+    "PCW_SHARED_CONTEXT_ALREADY_EXISTS",
+    "PCW_SHARED_CONTEXT_NAME_INVALID",
+    "PCW_WORKSTREAM_CONTEXT_ALREADY_CONFIGURED",
+    "PCW_CONTEXT_CREATE_CONFLICT",
+    "PCW_INVENTORY_STALE",
     "PCW_WORKSTREAM_CREATE_CONFLICT",
     "PCW_WORKSTREAM_NAME_INVALID"
   ].sort());

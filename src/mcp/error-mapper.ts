@@ -1,6 +1,14 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
 import { PcwConfigError } from "../config/pcw-config.js";
+import { PcwConfigStaleError } from "../config/config-mutation.js";
+import {
+  ContextCreateConflictError,
+  ContextWorkstreamNotFoundError,
+  SharedContextAlreadyExistsError,
+  SharedContextNameInvalidError,
+  WorkstreamContextAlreadyConfiguredError
+} from "../contexts/context-service.js";
 import {
   ContinuityNotConfiguredError,
   ContinuityNotMarkdownError,
@@ -10,9 +18,12 @@ import {
   ContinuityWorkstreamNotFoundError
 } from "../continuity/continuity-service.js";
 import { PcwPathError } from "../filesystem/paths.js";
-import { InventoryNotFileError } from "../inventory/inventory-service.js";
 import {
-  PcwConfigStaleError,
+  InventoryNotFileError,
+  InventoryStaleWriteError,
+  InventoryUpdateError
+} from "../inventory/inventory-service.js";
+import {
   WorkstreamAlreadyExistsError,
   WorkstreamCreateConflictError,
   WorkstreamNameInvalidError
@@ -91,7 +102,7 @@ export function unexpectedErrorResponse(error: unknown): CallToolResult {
       error: error.message,
       expectedSha256: error.expectedSha256,
       currentSha256: error.currentSha256,
-      action: "Retry create_workstream against the current pcw.yml."
+      action: error.action
     });
   }
 
@@ -99,6 +110,51 @@ export function unexpectedErrorResponse(error: unknown): CallToolResult {
     return codedErrorResponse(PCW_ERROR_CODES.WORKSTREAM_CREATE_CONFLICT, {
       error: error.message,
       workstream: error.requestedName,
+      ...(error.path ? { path: error.path } : {}),
+      ...(error.rollbackFailures.length > 0
+        ? { rollbackFailures: error.rollbackFailures }
+        : {})
+    });
+  }
+
+  if (error instanceof SharedContextNameInvalidError) {
+    return codedErrorResponse(PCW_ERROR_CODES.SHARED_CONTEXT_NAME_INVALID, {
+      error: error.message,
+      name: error.requestedName,
+      rule: error.rule
+    });
+  }
+
+  if (error instanceof SharedContextAlreadyExistsError) {
+    return codedErrorResponse(PCW_ERROR_CODES.SHARED_CONTEXT_ALREADY_EXISTS, {
+      error: error.message,
+      name: error.requestedName,
+      existingContext: error.existingContext
+    });
+  }
+
+  if (error instanceof WorkstreamContextAlreadyConfiguredError) {
+    return codedErrorResponse(
+      PCW_ERROR_CODES.WORKSTREAM_CONTEXT_ALREADY_CONFIGURED,
+      {
+        error: error.message,
+        workstream: error.workstream,
+        path: error.contextPath
+      }
+    );
+  }
+
+  if (error instanceof ContextWorkstreamNotFoundError) {
+    return codedErrorResponse(PCW_ERROR_CODES.WORKSTREAM_NOT_FOUND, {
+      error: error.message,
+      availableWorkstreams: error.availableWorkstreams
+    });
+  }
+
+  if (error instanceof ContextCreateConflictError) {
+    return codedErrorResponse(PCW_ERROR_CODES.CONTEXT_CREATE_CONFLICT, {
+      error: error.message,
+      name: error.requestedName,
       ...(error.path ? { path: error.path } : {}),
       ...(error.rollbackFailures.length > 0
         ? { rollbackFailures: error.rollbackFailures }
@@ -206,6 +262,31 @@ export function inventorySearchErrorResponse(
   return codedErrorResponse(code, {
     error: "Could not search the configured inventory",
     path: absolutePath
+  });
+}
+
+export function inventoryUpdateErrorResponse(
+  error: unknown,
+  absolutePath: string
+): CallToolResult {
+  if (error instanceof InventoryStaleWriteError) {
+    return codedErrorResponse(PCW_ERROR_CODES.INVENTORY_STALE, {
+      error: error.message,
+      expectedSha256: error.expectedSha256,
+      currentSha256: error.currentSha256,
+      action: "Call get_inventory again, reconcile the newer inventory, and retry."
+    });
+  }
+
+  const code = isUnsafePathError(error)
+    ? PCW_ERROR_CODES.PATH_UNSAFE
+    : PCW_ERROR_CODES.INVENTORY_ERROR;
+  return codedErrorResponse(code, {
+    error: "Could not update the configured inventory",
+    path: absolutePath,
+    ...(error instanceof InventoryUpdateError
+      ? { details: error.details }
+      : {})
   });
 }
 export function continuityReadErrorResponse(

@@ -15,12 +15,13 @@ The v0.2 foundation is not a complete sandbox or production security boundary. T
 - Source discovery and reading are additionally confined to their configured shared-context or workstream section.
 - Existing source targets pass realpath containment and file readers reject directory inputs.
 - Inventory reads use the same root and realpath boundary; searching inventory does not crawl referenced sources.
-- The intended write surface is limited to workstream creation and continuity replacement; there is no arbitrary-file, delete, or rename tool.
+- The intended write surface is limited to generated context/workstream creation, complete inventory replacement, and continuity replacement; there is no arbitrary-file, external-import, delete, or rename tool.
 - Automatic workstream names use a conservative 1-64 character ASCII rule and generated paths; callers cannot supply arbitrary creation paths.
 - Workstream creation rejects existing generated targets, case-insensitive logical duplicates, traversal-like names, and links that route generated paths outside the context root.
-- Structural writes use an exclusive PCW config lock, recheck the configuration SHA before commit, back up the exact prior `pcw.yml`, and atomically replace it.
+- Workstream creation, shared-context creation, and enabling workstream context use one exclusive PCW config lock, recheck the configuration SHA before commit, back up the exact prior `pcw.yml`, and atomically replace it.
 - Failed structural creation performs best-effort rollback and reports incomplete rollback explicitly.
 - Continuity writes require the expected SHA-256 and reject stale versions.
+- Inventory replacement requires the SHA-256 returned by `get_inventory`, rejects stale versions, and backs up the exact prior inventory under `.pcw/history/inventory/`.
 - Previous continuity is backed up before atomic replacement.
 - History directories and continuity targets are checked against the context root.
 - Canonical workstream names containing path separators, traversal components, NUL characters, or no visible characters are rejected before being used as history directory names.
@@ -29,6 +30,8 @@ The v0.2 foundation is not a complete sandbox or production security boundary. T
 - Unexpected non-Error thrown values are replaced with a generic message, and stack traces are never returned in MCP tool responses.
 
 PCW-MCP must not be treated as a general filesystem browser. Configuration and tool inputs do not grant access outside the selected context root.
+
+PCW does not expose arbitrary external-path import. The safe onboarding sequence is to create a generated PCW-managed section, have an authorized human copy approved material into that in-root directory, then discover/read it through PCW and update the semantic inventory with optimistic concurrency.
 
 Domain services do not depend on MCP response types. Transport formatting and error translation are confined to `src/mcp`, which reduces the risk of domain failures accidentally serializing arbitrary objects. This separation is not a complete security boundary and does not make PCW production-hardened.
 
@@ -51,7 +54,7 @@ For existing targets, PCW-MCP resolves the real paths of the root and target bef
 
 A residual time-of-check/time-of-use risk remains: a local actor with concurrent filesystem write access could replace a link or path after the `realpath` check and before the subsequent open, copy, or atomic-write operation. Fully eliminating that race requires lower-level handle-based and platform-specific controls and is deferred.
 
-The config lock coordinates PCW `create_workstream` processes but not manual editors or non-cooperating programs. The SHA recheck rejects changes observed before commit, but it is not an operating-system compare-and-swap. A crash can leave the lock or partially created artifacts; automatic stale-lock recovery and structural repair are not implemented.
+The config lock coordinates all three PCW structural writers but not manual editors or non-cooperating programs. The SHA recheck rejects changes observed before commit, but it is not an operating-system compare-and-swap. A crash can leave the lock or partially created artifacts; automatic stale-lock recovery and structural repair are not implemented.
 
 Workstream creation is a guarded multi-file operation, not a fully atomic transaction. PCW validates first, writes `pcw.yml` last, and rolls back its own new artifacts on failure. Rollback itself can fail and is then reported as `PCW_WORKSTREAM_CREATE_CONFLICT`.
 

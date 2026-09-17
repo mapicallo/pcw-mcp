@@ -16,7 +16,7 @@ PCW is intended to be vendor/provider neutral. The persistent state does not bel
 
 PCW-MCP v0.1 is a validated functional POC. It has demonstrated local stdio MCP access, selective persistent context retrieval, continuity versioning, controlled continuity writes, history backup, and optimistic concurrency.
 
-This project is not production-ready. `0.2.0-beta.1` and `0.2.0-beta.2` are frozen and tagged. `0.2.0-beta.3` is the next local private-beta candidate and is not tagged or published.
+This project is not production-ready. `0.2.0-beta.1`, `0.2.0-beta.2`, and `0.2.0-beta.3` are frozen and tagged. `0.2.0-beta.4` is the next local private-beta candidate and is not tagged or published.
 
 ## Current Stack
 

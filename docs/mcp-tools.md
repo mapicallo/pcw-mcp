@@ -2,11 +2,13 @@
 
 All tools are exposed by server `pcw-mcp`. Structured success and error payloads are serialized as JSON in one MCP text content item unless noted otherwise. Inputs shown as strings require at least one character where marked `min 1`.
 
-The private-beta contract contains exactly 13 tools. The POC-only `hello` tool was removed before the beta freeze.
+The private-beta contract contains exactly 16 tools. The POC-only `hello` tool was removed before the beta freeze.
 
 | Tool | Type | Purpose |
 | --- | --- | --- |
 | `create_workstream` | Structural write | Safely create a configured workstream and initial continuity. |
+| `create_shared_context` | Structural write | Create a generated shared-context section inside the PCW root. |
+| `enable_workstream_context` | Structural write | Add generated specialized context to an existing workstream. |
 | `get_project_info` | Read | Return configured project and inventory metadata. |
 | `list_workstreams` | Discovery | List configured logical workstreams. |
 | `get_workstream_info` | Discovery | Return configuration and filesystem status for one workstream. |
@@ -15,6 +17,7 @@ The private-beta contract contains exactly 13 tools. The POC-only `hello` tool w
 | `list_sources` | Discovery | List immediate entries without reading content. |
 | `get_inventory` | Read | Read the complete configured inventory. |
 | `search_inventory` | Search | Select matching inventory sections. |
+| `update_inventory` | Write | Replace inventory using optimistic concurrency. |
 | `read_text_source` | Read | Read one Markdown or TXT source. |
 | `read_docx_source` | Read | Extract text and warnings from one DOCX source. |
 | `read_pdf_source` | Read | Extract selectable text from one PDF source. |
@@ -33,6 +36,18 @@ Input:
 Result: `workstream`, `mode`, generated `continuityPath`, optional generated `contextPath`, `configBackupPath`, `created: true`, and lowercase hexadecimal `initialContinuitySha256`.
 
 The tool rejects case-insensitive duplicates, unsafe names, and preexisting generated targets. It creates `continuity/<NAME>.md`; `with-context` additionally creates `workstreams/<NAME>/`. Before atomically replacing `pcw.yml`, it stores the exact prior configuration under `.pcw/history/config/`. It does not modify inventory or adopt existing files.
+
+### create_shared_context
+
+Input: `name: string`, using the same conservative 1-64 character automatic-name rule.
+
+Result: `name`, generated `path` (`shared/<NAME>`), `configBackupPath`, and `created: true`. Names collide case-insensitively. The target directory and checked YAML entry are created under the shared config lock; callers cannot supply a path.
+
+### enable_workstream_context
+
+Input: existing workstream `name: string` (min 1), resolved case-insensitively.
+
+Result: canonical `workstream`, generated `contextPath` (`workstreams/<CANONICAL>`), `configBackupPath`, and `created: true`. Unknown workstreams, already configured context, unsafe canonical names, and existing targets are rejected. Existing continuity is unchanged.
 
 ### get_project_info
 
@@ -96,7 +111,7 @@ Same input and metadata shape as text reads. Only `.pdf` is accepted. Result inc
 
 Input: none.
 
-Result: configured `path`, `absolutePath`, `sizeBytes`, `modifiedAt`, and complete `inventory` text.
+Result: configured `path`, `absolutePath`, `sizeBytes`, `modifiedAt`, lowercase hexadecimal `sha256`, and complete `inventory` text.
 
 Notable errors: inventory absent, configured target not a file, or read failure with `path`.
 
@@ -110,6 +125,17 @@ Input:
 The service default is 8 when `limit` is absent.
 
 Result: `query`, configured `inventory` path, `matchCount`, and ordered `matches`. Each match is `{ title, content }`. Matching is case-insensitive substring search over inventory sections and preserves document order.
+
+### update_inventory
+
+Input:
+
+- complete replacement `content: string` (1 to 200,000 characters);
+- `expectedSha256: string` (exactly 64 characters).
+
+Result: configured `path`, `absolutePath`, `previousSha256`, `newSha256`, `backupPath`, and `updated: true`.
+
+The previous inventory is stored under `.pcw/history/inventory/` before atomic replacement. A stale SHA returns `PCW_INVENTORY_STALE` with expected/current values and an action; no backup or overwrite occurs.
 
 ## Continuity
 
@@ -143,10 +169,15 @@ Expected failures set `isError: true` and add a stable `code` without removing e
 - `PCW_WORKSTREAM_ALREADY_EXISTS`: the requested logical name already exists case-insensitively;
 - `PCW_WORKSTREAM_NAME_INVALID`: the automatic-creation name rule was not met;
 - `PCW_WORKSTREAM_CREATE_CONFLICT`: a target collision, active config writer, write failure, or incomplete rollback prevented safe creation;
+- `PCW_SHARED_CONTEXT_ALREADY_EXISTS`: a shared logical name already exists case-insensitively;
+- `PCW_SHARED_CONTEXT_NAME_INVALID`: the automatic shared-context name rule was not met;
+- `PCW_WORKSTREAM_CONTEXT_ALREADY_CONFIGURED`: specialized context already exists;
+- `PCW_CONTEXT_CREATE_CONFLICT`: a context target, lock, write, or rollback prevented safe creation;
 - `PCW_CONTEXT_NOT_CONFIGURED`: shared/workstream context is unknown or unavailable;
 - `PCW_PATH_UNSAFE`: a configured or requested path violates containment;
 - `PCW_SOURCE_ERROR`: source is missing, is not a file, has an unsupported type, or cannot be read;
 - `PCW_INVENTORY_ERROR`: inventory is absent, invalid, or cannot be read/searched;
+- `PCW_INVENTORY_STALE`: inventory optimistic-concurrency SHA mismatch;
 - `PCW_CONTINUITY_NOT_CONFIGURED`: workstream has no continuity path;
 - `PCW_CONTINUITY_INVALID`: continuity target or update operation is invalid;
 - `PCW_CONTINUITY_STALE`: optimistic-concurrency SHA mismatch;

@@ -10,13 +10,15 @@ software PCW != registro en el cliente MCP != contextos PCW
 
 El software PCW es reemplazable. Los contextos son datos duraderos propiedad del usuario e incluyen continuidad, inventario, fuentes configuradas y `.pcw/history`. Desinstalar el paquete no debe eliminar esos contextos.
 
+Los directorios generados por `create_shared_context` y `enable_workstream_context`, las copias del inventario y las fuentes autorizadas copiadas pertenecen al contexto. Desinstalar o reinstalar el paquete no debe eliminarlos.
+
 ## Instalar
 
 En un directorio local dedicado:
 
 ```powershell
 npm init -y
-npm install "<handoff>\package\pcw-mcp-0.2.0-beta.3.tgz" --omit=dev
+npm install "<handoff>\package\pcw-mcp-0.2.0-beta.4.tgz" --omit=dev
 ```
 
 ## Desactivar o desconectar

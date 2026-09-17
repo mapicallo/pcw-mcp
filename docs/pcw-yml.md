@@ -62,7 +62,7 @@ An optional path object may exist without `path`; tools then treat that resource
 
 ## Version Distinction
 
-The server software version is currently `0.2.0-beta.3` and comes from `package.json`.
+The server software version is currently `0.2.0-beta.4` and comes from `package.json`.
 
 The independent `pcw.yml.version` field remains optional and accepts strings or numbers because that is the validated POC behavior. A future schema migration should define a required canonical integer such as `version: 1`, but that would be an explicit compatibility change and is not part of this baseline.
 
@@ -85,6 +85,12 @@ Configuration structure is validated by Zod. Filesystem safety is enforced separ
 `create_workstream` deliberately does not accept filesystem paths. For a safe name `PLATFORM-LAB`, continuity-only creation adds `continuity/PLATFORM-LAB.md`; `with-context` also creates `workstreams/PLATFORM-LAB/`. The matching paths are written to a new `workstreams.PLATFORM-LAB` entry.
 
 This convention applies only to automatic creation. Existing and manually edited contexts may map logical names to different physical paths, provided those paths remain inside the PCW root. Automatic creation does not modify the inventory.
+
+## Automatic Context Conventions
+
+`create_shared_context` accepts only a safe logical name and generates `shared/<NAME>/`; `enable_workstream_context` resolves an existing workstream case-insensitively and generates `workstreams/<CANONICAL>/`. Neither accepts a caller-provided path. Both preserve unrelated YAML, use the shared structural-write lock, store the exact previous configuration under `.pcw/history/config/`, and atomically replace `pcw.yml`.
+
+These conventions authorize only generated locations inside the selected PCW root. External documents must be copied into them by an authorized human before PCW can discover or read them.
 
 ## Minimal Useful Context
 

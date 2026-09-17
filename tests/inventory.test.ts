@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import {
   mkdir,
   mkdtemp,
+  readFile,
+  readdir,
   rm,
   symlink,
   writeFile
@@ -11,15 +13,19 @@ import { join } from "node:path";
 import { platform } from "node:process";
 import test from "node:test";
 
+import { sha256Text } from "../src/filesystem/hashing.js";
 import { PcwPathError } from "../src/filesystem/paths.js";
 import {
   DEFAULT_INVENTORY_SEARCH_LIMIT,
   extractInventorySections,
   InventoryNotFileError,
+  InventoryStaleWriteError,
+  InventoryUpdateError,
   loadInventoryDocument,
   resolveInventoryPath,
   searchInventory,
-  searchInventorySections
+  searchInventorySections,
+  updateInventory
 } from "../src/inventory/inventory-service.js";
 
 async function withInventoryFilesystem<T>(
@@ -66,10 +72,130 @@ test("inventory document loads current content and metadata", async () => {
     assert.equal(document.configuredPath, "catalog/inventory.md");
     assert.equal(document.absolutePath, inventoryPath);
     assert.equal(document.content, content);
+    assert.equal(document.sha256, sha256Text(content));
     assert.equal(document.sizeBytes, Buffer.byteLength(content));
     assert.equal(
       new Date(document.modifiedAt).toISOString(),
       document.modifiedAt
+    );
+  });
+});
+
+test("inventory update backs up exact content and persists deterministic hashes", async () => {
+  await withInventoryFilesystem(async ({ contextRoot, inventoryPath }) => {
+    const original = "### Original\nSynthetic original inventory.\n";
+    const replacement = "### Replacement\nSynthetic replacement inventory.\n";
+    await writeFile(inventoryPath, original, "utf8");
+
+    const result = await updateInventory(
+      contextRoot,
+      "catalog/inventory.md",
+      { content: replacement, expectedSha256: sha256Text(original) }
+    );
+
+    assert.equal(result.previousSha256, sha256Text(original));
+    assert.equal(result.newSha256, sha256Text(replacement));
+    assert.equal(result.updated, true);
+    assert.equal(await readFile(inventoryPath, "utf8"), replacement);
+    assert.equal(await readFile(result.backupPath, "utf8"), original);
+
+    const second = await updateInventory(
+      contextRoot,
+      "catalog/inventory.md",
+      {
+        content: "### Second\nSecond valid replacement.\n",
+        expectedSha256: result.newSha256
+      }
+    );
+    assert.notEqual(second.backupPath, result.backupPath);
+    assert.equal(
+      (await readdir(join(contextRoot, ".pcw", "history", "inventory"))).length,
+      2
+    );
+  });
+});
+
+test("stale inventory update does not write or create history", async () => {
+  await withInventoryFilesystem(async ({ contextRoot, inventoryPath }) => {
+    const current = "### Current\nWinning inventory.\n";
+    await writeFile(inventoryPath, current, "utf8");
+
+    await assert.rejects(
+      updateInventory(
+        contextRoot,
+        "catalog/inventory.md",
+        { content: "stale", expectedSha256: "0".repeat(64) }
+      ),
+      InventoryStaleWriteError
+    );
+    assert.equal(await readFile(inventoryPath, "utf8"), current);
+    await assert.rejects(
+      readdir(join(contextRoot, ".pcw", "history", "inventory"))
+    );
+  });
+});
+
+test("two inventory clients reject the stale losing update", async () => {
+  await withInventoryFilesystem(async ({ contextRoot, inventoryPath }) => {
+    const initial = "### Initial\nShared inventory version.\n";
+    await writeFile(inventoryPath, initial, "utf8");
+    const clientASha = (await loadInventoryDocument(
+      contextRoot,
+      "catalog/inventory.md"
+    )).sha256;
+    const clientBSha = clientASha;
+    const winning = "### Client B\nWinning version.\n";
+
+    await updateInventory(
+      contextRoot,
+      "catalog/inventory.md",
+      { content: winning, expectedSha256: clientBSha }
+    );
+    await assert.rejects(
+      updateInventory(
+        contextRoot,
+        "catalog/inventory.md",
+        { content: "### Client A\nStale version.\n", expectedSha256: clientASha }
+      ),
+      InventoryStaleWriteError
+    );
+    assert.equal(await readFile(inventoryPath, "utf8"), winning);
+  });
+});
+
+test("inventory backup failure prevents replacement", async () => {
+  await withInventoryFilesystem(async ({ contextRoot, inventoryPath }) => {
+    const original = "### Original\nMust remain.\n";
+    await writeFile(inventoryPath, original, "utf8");
+
+    await assert.rejects(
+      updateInventory(
+        contextRoot,
+        "catalog/inventory.md",
+        { content: "replacement", expectedSha256: sha256Text(original) },
+        {
+          writeBackup: async () => {
+            throw new Error("synthetic backup failure");
+          }
+        }
+      ),
+      InventoryUpdateError
+    );
+    assert.equal(await readFile(inventoryPath, "utf8"), original);
+  });
+});
+
+test("inventory update preserves unsafe-path errors in its cause chain", async () => {
+  await withInventoryFilesystem(async ({ contextRoot }) => {
+    await assert.rejects(
+      updateInventory(
+        contextRoot,
+        "../outside/inventory.md",
+        { content: "replacement", expectedSha256: "0".repeat(64) }
+      ),
+      (error) =>
+        error instanceof InventoryUpdateError &&
+        error.cause instanceof PcwPathError
     );
   });
 });
@@ -110,6 +236,16 @@ test("inventory symlink or junction escaping the root is rejected", async (t) =>
     await assert.rejects(
       loadInventoryDocument(contextRoot, "linked/inventory.md"),
       (error) => error instanceof PcwPathError
+    );
+    await assert.rejects(
+      updateInventory(
+        contextRoot,
+        "linked/inventory.md",
+        { content: "replacement", expectedSha256: "0".repeat(64) }
+      ),
+      (error) =>
+        error instanceof InventoryUpdateError &&
+        error.cause instanceof PcwPathError
     );
   });
 });

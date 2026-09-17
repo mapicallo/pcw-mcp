@@ -15,7 +15,7 @@ test("create_workstream is discoverable with its additive public schema", async 
       const tools = await client.listTools();
       const tool = tools.tools.find(({ name }) => name === "create_workstream");
 
-      assert.equal(tools.tools.length, 13);
+      assert.equal(tools.tools.length, 16);
       assert.ok(tool);
       assert.deepEqual(tool.inputSchema.required, ["name"]);
       assert.deepEqual(tool.inputSchema.properties?.mode, {

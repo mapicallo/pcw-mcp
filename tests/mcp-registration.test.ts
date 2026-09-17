@@ -5,6 +5,8 @@ import { fixtureRoot, withServer } from "./mcp-test-client.js";
 
 const expectedToolNames = [
   "create_workstream",
+  "create_shared_context",
+  "enable_workstream_context",
   "get_project_info",
   "list_workstreams",
   "get_workstream_info",
@@ -13,6 +15,7 @@ const expectedToolNames = [
   "list_sources",
   "get_inventory",
   "search_inventory",
+  "update_inventory",
   "read_text_source",
   "read_docx_source",
   "read_pdf_source",
@@ -37,6 +40,9 @@ test("important tool descriptions and input-schema constraints are preserved", a
     const searchInventory = tools.get("search_inventory");
     const updateContinuity = tools.get("update_continuity");
     const createWorkstream = tools.get("create_workstream");
+    const createSharedContext = tools.get("create_shared_context");
+    const enableWorkstreamContext = tools.get("enable_workstream_context");
+    const updateInventory = tools.get("update_inventory");
 
     assert.deepEqual(createWorkstream?.inputSchema.required, ["name"]);
     assert.deepEqual(
@@ -51,6 +57,21 @@ test("important tool descriptions and input-schema constraints are preserved", a
     assert.equal(
       createWorkstream?.inputSchema.properties?.initialObjective.maxLength,
       2_000
+    );
+    assert.deepEqual(createSharedContext?.inputSchema.required, ["name"]);
+    assert.deepEqual(enableWorkstreamContext?.inputSchema.required, ["name"]);
+    assert.deepEqual(
+      updateInventory?.inputSchema.required,
+      ["content", "expectedSha256"]
+    );
+    assert.equal(updateInventory?.inputSchema.properties?.content.maxLength, 200_000);
+    assert.equal(
+      updateInventory?.inputSchema.properties?.expectedSha256.minLength,
+      64
+    );
+    assert.equal(
+      updateInventory?.inputSchema.properties?.expectedSha256.maxLength,
+      64
     );
 
     assert.equal(

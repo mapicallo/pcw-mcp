@@ -21,7 +21,7 @@ Desde un directorio situado fuera del kit:
 mkdir pcw-test
 cd pcw-test
 npm init -y
-npm install "<ruta-al-kit>\package\pcw-mcp-0.2.0-beta.3.tgz" --omit=dev
+npm install "<ruta-al-kit>\package\pcw-mcp-0.2.0-beta.4.tgz" --omit=dev
 ```
 
 ```powershell
@@ -100,6 +100,19 @@ Crea en PCW un nuevo workstream llamado PLATFORM-LAB con contexto especializado.
 La IA puede llamar a `create_workstream` con `mode: "with-context"`. PCW crea `continuity/PLATFORM-LAB.md`, `workstreams/PLATFORM-LAB/`, una entrada de configuración validada y una copia exacta de la configuración anterior. El modo predeterminado `"continuity-only"` crea solo la continuidad. La edición manual de `pcw.yml` sigue disponible para diseños físicos personalizados avanzados.
 
 Cualquier chat conectado al mismo contexto PCW puede descubrir el nuevo workstream inmediatamente. El workstream pertenece al contexto duradero, no al chat que lo creó; por ejemplo, un chat puede continuar `BACKEND` mientras otro continúa `PLATFORM-LAB`.
+
+## Añade contexto a PCW
+
+Elige primero la función duradera del contenido:
+
+- el contexto compartido contiene conocimiento reutilizable por varios workstreams;
+- el contexto especializado pertenece a un workstream existente;
+- la continuidad es el checkpoint duradero actual, no una biblioteca documental;
+- el inventario es el mapa semántico para localizar fuentes relevantes.
+
+Pide a PCW que llame a `create_shared_context({ name: "reference" })` o `enable_workstream_context({ name: "OPERATIONS" })`. PCW crea un directorio dentro de la raíz y actualiza `pcw.yml` de forma segura. Después, una persona autorizada copia únicamente documentos aprobados al directorio generado. El agente puede usar `list_sources` y el lector `read_*_source` adecuado; finalmente vuelve a leer `get_inventory` y usa su SHA con `update_inventory` para sustituir el inventario completo revisado.
+
+PCW no importa ni lee rutas externas arbitrarias mediante MCP. Una persona autorizada debe colocar primero los archivos dentro de la raíz PCW seleccionada; es un límite de seguridad, no una función de sistema de archivos pendiente.
 
 ## Primeras peticiones
 

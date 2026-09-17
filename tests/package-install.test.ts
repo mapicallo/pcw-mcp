@@ -31,6 +31,8 @@ const publicExampleRoot = join(repositoryRoot, "examples", "sample-context");
 
 const expectedToolNames = [
   "create_workstream",
+  "create_shared_context",
+  "enable_workstream_context",
   "get_project_info",
   "list_workstreams",
   "get_workstream_info",
@@ -39,6 +41,7 @@ const expectedToolNames = [
   "list_sources",
   "get_inventory",
   "search_inventory",
+  "update_inventory",
   "read_text_source",
   "read_docx_source",
   "read_pdf_source",
@@ -323,6 +326,90 @@ test("packed PCW installs and operates independently from repository sources", a
         assert.equal(inventory.data.matches[0].title, "Backend API Notes");
         assert.match(source.data.text, /do not reach persistence/);
         assert.match(before.data.continuity, /Define pagination/);
+
+        const shared = await callTool<{
+          name: string;
+          path: string;
+          configBackupPath: string;
+          created: boolean;
+        }>(client, "create_shared_context", { name: "package-reference" });
+        assert.equal(shared.isError, false);
+        assert.equal(shared.data.path, "shared/package-reference");
+        await access(join(contextRoot, shared.data.path));
+        await access(join(contextRoot, shared.data.configBackupPath));
+
+        const enabled = await callTool<{
+          workstream: string;
+          contextPath: string;
+          configBackupPath: string;
+          created: boolean;
+        }>(client, "enable_workstream_context", { name: "operations" });
+        assert.equal(enabled.isError, false);
+        assert.equal(enabled.data.workstream, "OPERATIONS");
+        assert.equal(enabled.data.contextPath, "workstreams/OPERATIONS");
+        await access(join(contextRoot, enabled.data.contextPath));
+        await access(join(contextRoot, enabled.data.configBackupPath));
+
+        await writeFile(
+          join(contextRoot, shared.data.path, "approved-source.md"),
+          "# Approved package source\n\nSynthetic authorized content.\n",
+          "utf8"
+        );
+        const discovered = await callTool<{
+          sources: Array<{ name: string }>;
+        }>(client, "list_sources", {
+          scope: "shared",
+          name: "package-reference"
+        });
+        const approvedSource = await callTool<{ text: string }>(
+          client,
+          "read_text_source",
+          {
+            scope: "shared",
+            name: "package-reference",
+            source: "approved-source.md"
+          }
+        );
+        assert.ok(
+          discovered.data.sources.some(({ name }) => name === "approved-source.md")
+        );
+        assert.match(approvedSource.data.text, /Synthetic authorized content/);
+
+        const inventoryBefore = await callTool<{
+          sha256: string;
+          inventory: string;
+        }>(client, "get_inventory");
+        const inventoryReplacement =
+          "### Package reference\nPurpose: package onboarding marker.\n";
+        const inventoryUpdate = await callTool<{
+          newSha256: string;
+          backupPath: string;
+          updated: boolean;
+        }>(client, "update_inventory", {
+          content: inventoryReplacement,
+          expectedSha256: inventoryBefore.data.sha256
+        });
+        assert.equal(inventoryUpdate.isError, false);
+        assert.equal(inventoryUpdate.data.updated, true);
+        await access(inventoryUpdate.data.backupPath);
+
+        const updatedSearch = await callTool<{ matchCount: number }>(
+          client,
+          "search_inventory",
+          { query: "package onboarding marker" }
+        );
+        assert.equal(updatedSearch.data.matchCount, 1);
+
+        const staleInventory = await callTool<{ code: string }>(
+          client,
+          "update_inventory",
+          {
+            content: "### Stale\nMust not win.\n",
+            expectedSha256: inventoryBefore.data.sha256
+          }
+        );
+        assert.equal(staleInventory.isError, true);
+        assert.equal(staleInventory.data.code, "PCW_INVENTORY_STALE");
 
         const created = await callTool<{
           workstream: string;

@@ -1,26 +1,28 @@
-import {
-  lstat,
-  open,
-  readFile,
-  rm,
-  rmdir,
-  writeFile
-} from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 
-import writeFileAtomic from "write-file-atomic";
-import { isCollection, parseDocument } from "yaml";
+import { isCollection } from "yaml";
 
 import {
   PcwConfigError,
   findWorkstream
 } from "../config/pcw-config.js";
-import { pcwConfigSchema } from "../config/pcw-schema.js";
+import {
+  acquirePcwConfigMutationLock,
+  commitPcwConfigMutation,
+  type CreatedArtifact,
+  pathExists,
+  PcwConfigLockError,
+  PcwConfigStaleError,
+  type PcwConfigMutationSnapshot,
+  readPcwConfigMutationSnapshot,
+  rollbackCreatedArtifacts,
+  serializePcwConfigMutation
+} from "../config/config-mutation.js";
 import { sha256Text } from "../filesystem/hashing.js";
 import {
   assertExistingPathInsideBase,
   ensureDirectoryInsideBase,
-  ensureInsideBase,
   PcwPathError,
   resolveConfiguredPath
 } from "../filesystem/paths.js";
@@ -30,14 +32,11 @@ import type {
   WorkstreamCreationMode
 } from "./workstream-types.js";
 
+export { PcwConfigStaleError };
+
 const WORKSTREAM_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const WORKSTREAM_NAME_RULE =
   "Use 1 to 64 ASCII letters, digits, hyphens, or underscores, starting with a letter or digit.";
-
-type CreatedArtifact = {
-  path: string;
-  type: "file" | "directory";
-};
 
 export type WorkstreamCreationDependencies = {
   beforeConfigCommit?: () => Promise<void>;
@@ -79,60 +78,14 @@ export class WorkstreamCreateConflictError extends Error {
   }
 }
 
-export class PcwConfigStaleError extends Error {
-  constructor(
-    readonly expectedSha256: string,
-    readonly currentSha256: string
-  ) {
-    super("pcw.yml changed while the workstream was being created");
-    this.name = "PcwConfigStaleError";
-  }
-}
-
-function isNodeError(error: unknown, code: string): boolean {
-  return error instanceof Error &&
-    "code" in error &&
-    error.code === code;
-}
-
 function validateWorkstreamName(name: string): void {
   if (!WORKSTREAM_NAME_PATTERN.test(name)) {
     throw new WorkstreamNameInvalidError(name);
   }
 }
 
-function validateConfigDocument(content: string, configPath: string) {
-  const document = parseDocument(content);
-
-  if (document.errors.length > 0) {
-    throw new PcwConfigError(
-      `Could not parse PCW configuration at '${configPath}'`,
-      { cause: document.errors[0] }
-    );
-  }
-
-  const result = pcwConfigSchema.safeParse(document.toJS());
-  if (!result.success) {
-    const details = result.error.issues
-      .slice(0, 3)
-      .map((issue) => {
-        const location = issue.path.length > 0
-          ? issue.path.join(".")
-          : "configuration";
-        return `${location}: ${issue.message}`;
-      })
-      .join("; ");
-
-    throw new PcwConfigError(
-      `Invalid PCW configuration at '${configPath}': ${details}`
-    );
-  }
-
-  return { document, config: result.data };
-}
-
 function useBlockStyleForCreatedWorkstream(
-  document: ReturnType<typeof parseDocument>,
+  document: PcwConfigMutationSnapshot["document"],
   workstreamName: string
 ): void {
   for (const path of [
@@ -148,18 +101,6 @@ function useBlockStyleForCreatedWorkstream(
   }
 }
 
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await lstat(path);
-    return true;
-  } catch (error) {
-    if (isNodeError(error, "ENOENT")) {
-      return false;
-    }
-    throw error;
-  }
-}
-
 async function assertAvailableTarget(
   path: string,
   requestedName: string,
@@ -172,37 +113,6 @@ async function assertAvailableTarget(
       publicPath
     );
   }
-}
-
-async function acquireConfigLock(
-  contextRoot: string,
-  requestedName: string
-): Promise<() => Promise<void>> {
-  const lockDirectory = resolveConfiguredPath(contextRoot, ".pcw/locks");
-  await ensureDirectoryInsideBase(contextRoot, lockDirectory);
-
-  const lockPath = ensureInsideBase(
-    lockDirectory,
-    join(lockDirectory, "pcw-config.lock")
-  );
-
-  let handle;
-  try {
-    handle = await open(lockPath, "wx");
-  } catch (error) {
-    if (isNodeError(error, "EEXIST")) {
-      throw new WorkstreamCreateConflictError(
-        requestedName,
-        "Another PCW configuration write is already in progress"
-      );
-    }
-    throw error;
-  }
-
-  return async () => {
-    await handle.close();
-    await rm(lockPath, { force: true });
-  };
 }
 
 function createInitialContinuity(
@@ -248,28 +158,6 @@ Establish or reconstruct the first durable workstream checkpoint.
 `;
 }
 
-async function rollbackArtifacts(
-  artifacts: CreatedArtifact[]
-): Promise<string[]> {
-  const failures: string[] = [];
-
-  for (const artifact of [...artifacts].reverse()) {
-    try {
-      if (artifact.type === "file") {
-        await rm(artifact.path, { force: true });
-      } else {
-        await rmdir(artifact.path);
-      }
-    } catch (error) {
-      failures.push(
-        `${artifact.path}: ${error instanceof Error ? error.message : "rollback failed"}`
-      );
-    }
-  }
-
-  return failures;
-}
-
 export async function createWorkstream(
   contextRoot: string,
   input: CreateWorkstreamInput,
@@ -282,10 +170,15 @@ export async function createWorkstream(
   const contextPath = mode === "with-context"
     ? `workstreams/${input.name}`
     : null;
-  const configPath = resolveConfiguredPath(contextRoot, "pcw.yml");
-  await assertExistingPathInsideBase(contextRoot, configPath);
-
-  const releaseLock = await acquireConfigLock(contextRoot, input.name);
+  let releaseLock: () => Promise<void>;
+  try {
+    releaseLock = await acquirePcwConfigMutationLock(contextRoot);
+  } catch (error) {
+    if (error instanceof PcwConfigLockError) {
+      throw new WorkstreamCreateConflictError(input.name, error.message);
+    }
+    throw error;
+  }
   const createdArtifacts: CreatedArtifact[] = [];
   let operationCompleted = false;
 
@@ -294,20 +187,9 @@ export async function createWorkstream(
       writeFile(path, content, { encoding: "utf8", flag: "wx" }));
   const createContextDirectory = dependencies.createContextDirectory ??
     ((path: string) => ensureDirectoryInsideBase(contextRoot, path).then(() => undefined));
-  const writeConfigBackup = dependencies.writeConfigBackup ??
-    ((path: string, content: string) =>
-      writeFile(path, content, { encoding: "utf8", flag: "wx" }));
-  const writeConfigAtomic = dependencies.writeConfigAtomic ??
-    ((path: string, content: string) =>
-      writeFileAtomic(path, content, { encoding: "utf8" }));
-
   try {
-    const originalConfig = await readFile(configPath, "utf8");
-    const originalConfigSha256 = sha256Text(originalConfig);
-    const { document, config } = validateConfigDocument(
-      originalConfig,
-      configPath
-    );
+    const snapshot = await readPcwConfigMutationSnapshot(contextRoot);
+    const { document, config } = snapshot;
     const duplicate = findWorkstream(config, input.name);
     if (duplicate) {
       throw new WorkstreamAlreadyExistsError(input.name, duplicate.name);
@@ -340,8 +222,7 @@ export async function createWorkstream(
         };
     document.setIn(["workstreams", input.name], workstreamConfig);
     useBlockStyleForCreatedWorkstream(document, input.name);
-    const updatedConfig = document.toString({ lineWidth: 0 });
-    validateConfigDocument(updatedConfig, configPath);
+    const updatedConfig = serializePcwConfigMutation(snapshot);
 
     const continuityDirectory = dirname(continuityAbsolutePath);
     if (await ensureDirectoryInsideBase(contextRoot, continuityDirectory)) {
@@ -372,38 +253,15 @@ export async function createWorkstream(
       await assertExistingPathInsideBase(contextRoot, contextAbsolutePath);
     }
 
-    await dependencies.beforeConfigCommit?.();
-
-    const currentConfig = await readFile(configPath, "utf8");
-    const currentConfigSha256 = sha256Text(currentConfig);
-    if (currentConfigSha256 !== originalConfigSha256) {
-      throw new PcwConfigStaleError(
-        originalConfigSha256,
-        currentConfigSha256
-      );
-    }
-
-    const configHistoryDirectory = resolveConfiguredPath(
+    const configBackupPath = await commitPcwConfigMutation(
       contextRoot,
-      ".pcw/history/config"
+      snapshot,
+      updatedConfig,
+      "Retry create_workstream against the current pcw.yml.",
+      createdArtifacts,
+      dependencies,
+      "pcw.yml changed while the workstream was being created"
     );
-    await ensureDirectoryInsideBase(contextRoot, configHistoryDirectory);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const configBackupPath =
-      `.pcw/history/config/${timestamp}-${originalConfigSha256.slice(0, 12)}.yml`;
-    const configBackupAbsolutePath = resolveConfiguredPath(
-      contextRoot,
-      configBackupPath
-    );
-
-    await writeConfigBackup(configBackupAbsolutePath, originalConfig);
-    createdArtifacts.push({
-      path: configBackupAbsolutePath,
-      type: "file"
-    });
-    await assertExistingPathInsideBase(contextRoot, configBackupAbsolutePath);
-
-    await writeConfigAtomic(configPath, updatedConfig);
     operationCompleted = true;
 
     return {
@@ -416,7 +274,7 @@ export async function createWorkstream(
       initialContinuitySha256: sha256Text(initialContinuity)
     };
   } catch (error) {
-    const rollbackFailures = await rollbackArtifacts(createdArtifacts);
+    const rollbackFailures = await rollbackCreatedArtifacts(createdArtifacts);
 
     if (rollbackFailures.length > 0) {
       throw new WorkstreamCreateConflictError(

@@ -26,6 +26,12 @@ Crea en PCW un nuevo workstream llamado PLATFORM-LAB con contexto especializado.
 
 Los chats conectados al mismo contexto pueden usar inmediatamente workstreams duraderos distintos. La creación no vincula el workstream al chat que la inició.
 
+## Añade o amplía contexto
+
+Usa `create_shared_context` para conocimiento compartido entre workstreams. Usa `enable_workstream_context` cuando un workstream que solo tiene continuidad necesita sus propias fuentes. Ambos generan un directorio dentro de la raíz, guardan una copia de `pcw.yml` y son visibles inmediatamente.
+
+Después, una persona autorizada copia los archivos aprobados al directorio generado. Descúbrelos y léelos mediante PCW; no pidas al agente que evite PCW usando una ruta externa. Para mantener el mapa semántico, llama a `get_inventory`, revisa un reemplazo completo y llama a `update_inventory` con el SHA recibido. Si aparece `PCW_INVENTORY_STALE`, vuelve a leer y reconcilia en lugar de sobrescribir.
+
 ## Checkpoint
 
 Crea un checkpoint en hitos relevantes: tarea terminada, commit o revisión importante, decisión duradera, enfoque descartado, bloqueo, final del día, ventana de contexto larga o antes de cambiar de cliente.

@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 
 import { registerContinuityTools } from "./tools/continuity-tools.js";
+import { registerContextTools } from "./tools/context-tools.js";
 import { registerInventoryTools } from "./tools/inventory-tools.js";
 import { registerProjectTools } from "./tools/project-tools.js";
 import { registerSourceTools } from "./tools/source-tools.js";
@@ -20,6 +21,7 @@ export function createPcwMcpServer(
   });
 
   registerProjectTools(server, options.contextRoot);
+  registerContextTools(server, options.contextRoot);
   registerWorkstreamTools(server, options.contextRoot);
   registerSourceTools(server, options.contextRoot);
   registerInventoryTools(server, options.contextRoot);

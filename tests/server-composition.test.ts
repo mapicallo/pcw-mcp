@@ -19,6 +19,8 @@ import {
 
 const expectedToolNames = [
   "create_workstream",
+  "create_shared_context",
+  "enable_workstream_context",
   "get_project_info",
   "list_workstreams",
   "get_workstream_info",
@@ -27,6 +29,7 @@ const expectedToolNames = [
   "list_sources",
   "get_inventory",
   "search_inventory",
+  "update_inventory",
   "read_text_source",
   "read_docx_source",
   "read_pdf_source",
@@ -98,7 +101,7 @@ test("server factory exposes the established tools and metadata in memory", asyn
     assert.equal(new Set(names).size, expectedToolNames.length);
     assert.deepEqual(connection.client.getServerVersion(), {
       name: "pcw-mcp",
-      version: "0.2.0-beta.3"
+      version: "0.2.0-beta.4"
     });
   } finally {
     await connection.close();

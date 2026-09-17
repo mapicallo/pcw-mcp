@@ -32,6 +32,8 @@ if (!zipPath || !expectedVersion) {
 
 const expectedTools = [
   "create_workstream",
+  "create_shared_context",
+  "enable_workstream_context",
   "get_project_info",
   "list_workstreams",
   "get_workstream_info",
@@ -40,6 +42,7 @@ const expectedTools = [
   "list_sources",
   "get_inventory",
   "search_inventory",
+  "update_inventory",
   "read_text_source",
   "read_docx_source",
   "read_pdf_source",
@@ -261,7 +264,7 @@ test("extracted private-beta ZIP installs and operates independently", async () 
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name);
       assert.deepEqual([...names].sort(), [...expectedTools].sort());
-      assert.equal(new Set(names).size, 13);
+      assert.equal(new Set(names).size, 16);
 
       const project = await callTool<{ project: { id: string } }>(client, "get_project_info");
       const workstreams = await callTool<Array<{ name: string }>>(client, "list_workstreams");

@@ -1548,3 +1548,75 @@ tarball SHA-256: 31525f4d58bf3ff1e76873ba3066e261aae63d8cfe3dcee68691b6eb7c1b009
 ```
 
 Commit target: `fix: keep generated PCW config human-readable`. Push `v0.2-foundation` normally, confirm Node 22/24 CI, keep beta.1/beta.2 tags untouched, and do not create `v0.2.0-beta.3` until a separate authorized release-freeze operation.
+
+## BLOCK 18 - PCW 0.2.0-beta.4 Safe Context Onboarding And Inventory Writes
+
+Scope:
+
+```text
+Add safe PCW-managed shared/workstream context onboarding and optimistic-
+concurrency inventory replacement without exposing arbitrary external paths.
+```
+
+Status: completed on branch `v0.2-foundation` in the commit carrying the message `feat: add safe PCW context onboarding`.
+
+Trigger and security decision:
+
+- real use showed that continuity and configured reads worked, but an empty shared-context/inventory setup could not be expanded through PCW;
+- PCW still refuses arbitrary external paths and has no import-external-source tool;
+- an authorized human must copy approved documents into a generated directory inside `PCW_CONTEXT_ROOT`; agents then discover/read those sources only through PCW;
+- the public package remains `private: true`, `UNLICENSED`, local stdio only, and unpublished.
+
+Public beta.4 contract:
+
+- software/package/MCP version is `0.2.0-beta.4`, derived from `package.json`;
+- the public MCP set is exactly 16 tools: the prior 13 plus `create_shared_context`, `enable_workstream_context`, and `update_inventory`;
+- `create_shared_context({ name })` validates a conservative automatic name, rejects case-insensitive duplicates, generates `shared/<NAME>/`, and returns `name`, `path`, `configBackupPath`, and `created`;
+- `enable_workstream_context({ name })` resolves an existing workstream case-insensitively, rejects already-configured/unknown/collided targets, generates `workstreams/<CANONICAL>/`, preserves continuity, and returns `workstream`, `contextPath`, `configBackupPath`, and `created`;
+- `get_inventory` additively returns lowercase UTF-8 `sha256`;
+- `update_inventory({ content, expectedSha256 })` replaces the complete configured inventory, returns path/absolute path, previous/new SHA, backup path, and updated status, and rejects stale input with `PCW_INVENTORY_STALE`;
+- additive context errors are `PCW_SHARED_CONTEXT_ALREADY_EXISTS`, `PCW_SHARED_CONTEXT_NAME_INVALID`, `PCW_WORKSTREAM_CONTEXT_ALREADY_CONFIGURED`, and `PCW_CONTEXT_CREATE_CONFLICT`.
+
+Structural mutation and inventory safety:
+
+- `src/config/config-mutation.ts` now owns the shared cooperative config lock, YAML snapshot/schema validation, original SHA recheck, exact config backup, atomic commit, target-existence helper, and rollback helper;
+- `create_workstream` uses this shared infrastructure while preserving its beta.3 schema, results, diagnostics, generated YAML formatting, and rollback behavior;
+- `src/contexts/context-service.ts` and `context-types.ts` own the two generated in-root context workflows;
+- all three structural writers coordinate through `.pcw/locks/pcw-config.lock`, back up exact prior YAML under `.pcw/history/config/`, write config last, and best-effort roll back artifacts on failure;
+- inventory history is stored under `.pcw/history/inventory/<timestamp>-<previous-sha-prefix>.md`; backup must succeed before atomic replacement and rejected stale writes create no backup;
+- configured inventory and generated paths continue through lexical/realpath containment. External symlink/junction escapes are rejected.
+
+Tests, docs, and package:
+
+- service tests cover successful context creation, block YAML, comment/order/schema preservation, duplicates, unsafe names, target collisions, unknown/already-configured workstreams, continuity preservation, config backup, rollback, and the single shared lock;
+- inventory tests cover read SHA, successful/repeated updates, exact backups, stale rejection, two-client sequencing, path/link safety, and backup failure;
+- stdio tests cover exact 16-tool discovery/schemas, additive error codes, immediate context visibility, source discovery/read, inventory update/search, and stale inventory errors;
+- clean installed-package smoke exercises all beta.4 onboarding/inventory operations plus existing workstream and continuity workflows;
+- English and Spanish onboarding, daily-use, and lifecycle guides explain shared context vs specialized context vs continuity vs inventory and the intentional external-path boundary;
+- standard suite: 185 passed, 0 failed;
+- packaged install/lifecycle smoke: 2 passed, 0 failed;
+- extracted handoff smoke: 1 passed, 0 failed;
+- total automated validations: 188 passed, 0 failed;
+- `npm run build`, `npm test`, `npm run verify:beta`, and `npm run package:private-beta` passed;
+- Node 22.x/24.x CI remains configured; final pushed-commit status is reported in the completion response.
+
+Local ignored beta.4 artifact:
+
+```text
+ZIP: PCW-MCP-0.2.0-beta.4-PRIVATE-BETA.zip
+ZIP size: 83,779 bytes
+ZIP SHA-256: 8415b252aa584f248f45ebeae59cd75d0c41bd96ef664f3238ef8c07e706c3f3
+
+tarball: package/pcw-mcp-0.2.0-beta.4.tgz
+tarball size: 48,003 bytes
+tarball SHA-256: 919664ba081fe325f87d84dcb69fc6acfd27edb7133d5ff8d210c768d8910eef
+```
+
+Known limitations and next action:
+
+- structural writes remain cooperative multi-file operations, not OS-level transactions; crashes can leave a stale lock or partial artifacts;
+- SHA checks reduce stale writes but retain the documented local TOCTOU window and are not distributed locks;
+- inventory update is complete-document replacement, not section CRUD or automatic merging;
+- there is no arbitrary external import, delete/rename context, recursive ingestion, source registry, remote transport, or automatic inventory generation;
+- beta.1, beta.2, and beta.3 tags remain untouched; beta.4 is intentionally untagged, unpublished, and untransmitted;
+- recommended next action is authorized second-laptop validation of all three new tools, generated-directory copy/discovery, inventory stale-write handling, and package lifecycle before a separate release-freeze decision.
