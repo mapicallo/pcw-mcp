@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - v0.2-foundation
+      - v0.3-distribution
   pull_request:
 
 permissions:
