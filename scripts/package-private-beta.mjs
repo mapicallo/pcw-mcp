@@ -15,6 +15,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { zipSync } from "fflate";
+import { packCoreTarball } from "./pack-core.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(await readFile(join(repositoryRoot, "package.json"), "utf8"));
@@ -23,6 +24,11 @@ const bundleName = `PCW-MCP-${version}-PRIVATE-BETA`;
 const outputRoot = resolve(repositoryRoot, "artifacts", "private-beta");
 const outputDirectory = resolve(outputRoot, version);
 const npmCli = process.env.npm_execpath;
+const args = process.argv.slice(2);
+if (args.length !== 0 && (args.length !== 2 || args[0] !== "--core-tarball" || !args[1])) {
+  throw new Error("Usage: package:private-beta [--core-tarball <path>]");
+}
+const suppliedCore = args.length === 2 ? resolve(args[1]) : null;
 
 if (!npmCli) {
   throw new Error("package:private-beta must be run through npm");
@@ -88,15 +94,18 @@ try {
   await mkdir(packageDirectory, { recursive: true });
   await mkdir(docsDirectory, { recursive: true });
 
-  const packOutput = runNpm(
-    ["pack", "--json", "--pack-destination", packageDirectory],
-    { capture: true }
-  );
-  const [packResult] = JSON.parse(packOutput);
-  const tarballPath = join(packageDirectory, packResult.filename);
   const expectedTarball = `pcw-mcp-${version}.tgz`;
-  if (packResult.filename !== expectedTarball) {
-    throw new Error(`Unexpected npm artifact: ${packResult.filename}`);
+  let tarballPath;
+  if (suppliedCore) {
+    if (basename(suppliedCore) !== expectedTarball || !(await stat(suppliedCore)).isFile()) {
+      throw new Error(`Supplied Core must be a regular ${expectedTarball} file`);
+    }
+    tarballPath = join(packageDirectory, expectedTarball);
+    await cp(suppliedCore, tarballPath);
+  } else {
+    tarballPath = packCoreTarball(repositoryRoot, packageDirectory, version, {
+      alreadyBuilt: true
+    });
   }
 
   for (const document of ["START-HERE.md", "START-HERE-ES.md"]) {
