@@ -1,6 +1,6 @@
 # PCW-MCP Private Beta Guide
 
-PCW-MCP `0.2.0-beta.4` is a local-only private-beta candidate. Beta.1, beta.2, and beta.3 remain frozen and tagged; beta.4 is not tagged, published, or available through a remote transport.
+PCW-MCP `0.2.0-beta.4` is a frozen, tagged local-only private-beta baseline. It is not published or available through a remote transport.
 
 ## Prerequisites
 
