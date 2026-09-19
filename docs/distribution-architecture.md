@@ -107,14 +107,13 @@ SHA-256 alone does not prove who published the artifact.
 
 ## Proposed release manifest
 
-This is a future schema proposal, not an existing beta.4 manifest. Top-level
-fields: `manifestSchemaVersion`, `productId`, `softwareVersion`, `channel`,
-`source.gitTag`, `source.gitCommit`, `releasedAt` (ISO-8601 UTC), and
-`releaseNotesId`. An optional `configCompatibility` is null until a real
-config-schema compatibility mechanism exists. Each `artifacts` item records
-`artifactId`, `fileName`, `type`, target OS/architecture, runtime minimum
-where relevant, `sizeBytes`, and SHA-256. Artifact types can include
-`npm-tarball`, `windows-installer`, `mcpb`, and `private-handoff-zip`.
+Manifest v1 is now generated and validated by the repository's Zod-based
+script; see [release manifest generation](release-manifest.md) for its exact
+fields and provenance rules. It records schema version, product/software
+version, channel, Git commit/tag/dirty state, optional explicit UTC release
+date, and artifact IDs/types/names/targets/runtime/byte sizes/SHA-256.
+Logical release-notes references and config compatibility remain future
+extensions, not fields currently emitted by the generator.
 
 An artifact's stable ID identifies it without tying the release record to a
 storage provider. A separate publication mapping resolves
@@ -125,8 +124,8 @@ to locations. Both records need validation and immutability rules before use.
 Do not invent a numeric minimum config version: current `pcw.yml.version`
 is optional and accepts strings or numbers.
 
-Illustrative manifest shape (the date and notes ID are placeholders, not
-published beta.4 metadata):
+Illustrative future extension of manifest v1 (the date and notes ID are
+placeholders, not published beta.4 metadata):
 
 ```yaml
 manifestSchemaVersion: 1

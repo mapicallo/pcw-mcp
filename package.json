@@ -1,15 +1,16 @@
 {
   "name": "pcw-mcp",
-  "version": "0.2.0-beta.4",
+  "version": "0.3.0-dev.0",
   "description": "Local-first MCP server for Persistent Context Workstreams",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/workstreams.test.ts tests/workstream-creation.test.ts tests/context-onboarding.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts tests/error-codes.test.ts tests/mcp-registration.test.ts tests/server-composition.test.ts tests/public-contract.test.ts tests/runtime.test.ts tests/package.test.ts tests/public-example.test.ts",
+    "test": "npm run build && tsx --test tests/characterization.test.ts tests/config.test.ts tests/filesystem.test.ts tests/sources.test.ts tests/inventory.test.ts tests/continuity.test.ts tests/workstreams.test.ts tests/workstream-creation.test.ts tests/context-onboarding.test.ts tests/mcp-errors.test.ts tests/mcp-responses.test.ts tests/error-codes.test.ts tests/mcp-registration.test.ts tests/server-composition.test.ts tests/public-contract.test.ts tests/runtime.test.ts tests/package.test.ts tests/public-example.test.ts tests/release-manifest.test.mjs",
     "test:package-install": "npm run build && tsx --test tests/package-install.test.ts",
     "verify:beta": "node scripts/verify-beta.mjs",
-    "package:private-beta": "node scripts/package-private-beta.mjs"
+    "package:private-beta": "node scripts/package-private-beta.mjs",
+    "release:manifest": "node scripts/generate-release-manifest.mjs"
   },
   "keywords": [],
   "author": "",

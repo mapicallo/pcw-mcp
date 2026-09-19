@@ -10,6 +10,7 @@ import {
 } from "@modelcontextprotocol/server";
 
 import { createPcwMcpServer } from "../src/mcp/create-server.js";
+import { PCW_SOFTWARE_VERSION } from "../src/version.js";
 import {
   callTool,
   fixtureRoot,
@@ -101,7 +102,7 @@ test("server factory exposes the established tools and metadata in memory", asyn
     assert.equal(new Set(names).size, expectedToolNames.length);
     assert.deepEqual(connection.client.getServerVersion(), {
       name: "pcw-mcp",
-      version: "0.2.0-beta.4"
+      version: PCW_SOFTWARE_VERSION
     });
   } finally {
     await connection.close();
