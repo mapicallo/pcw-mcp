@@ -149,7 +149,10 @@ try {
   const archiveEntries = {};
   await collectZipFiles(bundleRoot, bundleName, archiveEntries);
   const zipPath = join(outputDirectory, `${bundleName}.zip`);
-  const zipContent = Buffer.from(zipSync(archiveEntries, { level: 9 }));
+  const zipContent = Buffer.from(zipSync(archiveEntries, {
+    level: 9,
+    mtime: new Date(1980, 0, 1)
+  }));
   await writeFile(zipPath, zipContent);
 
   const zipHash = sha256(zipContent);
