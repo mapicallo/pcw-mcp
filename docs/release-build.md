@@ -52,3 +52,6 @@ currently supports **only `private-beta`**. `beta` and `stable` fail clearly;
 there is no Standard installer or MCPB to include yet. Repeated local builds
 from identical inputs should produce identical hashes for all four files.
 Cross-platform bit-for-bit reproducibility remains unproven.
+
+The separate GitHub Actions verification pipeline is described in
+[release CI](release-ci.md). Its workflow artifact is not a published release.

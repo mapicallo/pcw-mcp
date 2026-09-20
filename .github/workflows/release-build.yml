@@ -1,0 +1,81 @@
+name: release-build
+
+on:
+  push:
+    branches:
+      - v0.3-distribution
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22.x, 24.x]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: Packaged install smoke
+        if: matrix.node-version == '22.x'
+        run: npm run test:package-install
+
+  package:
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.3.0'
+      - name: Assert canonical packaging toolchain
+        run: |
+          test "$(node --version)" = "v24.3.0"
+          test "$(npm --version)" = "11.4.2"
+      - run: npm ci
+      - name: Read package version
+        id: meta
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Build release set A
+        run: npm run release:build -- --channel private-beta
+      - name: Verify and snapshot A
+        run: >-
+          node scripts/verify-release-set.mjs
+          --directory artifacts/releases/${{ steps.meta.outputs.version }}/private-beta
+          --snapshot artifacts/release-set-A.json
+          --require-clean-source
+      - name: Build release set B
+        run: npm run release:build -- --channel private-beta
+      - name: Verify B and compare every file with A
+        run: >-
+          node scripts/verify-release-set.mjs
+          --directory artifacts/releases/${{ steps.meta.outputs.version }}/private-beta
+          --compare artifacts/release-set-A.json
+          --metadata-directory artifacts/release-ci-verification
+          --require-clean-source
+      - name: Store verification metadata only
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcw-${{ steps.meta.outputs.version }}-private-beta-verification-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            artifacts/release-ci-verification/release-manifest.json
+            artifacts/release-ci-verification/SHA256SUMS.txt
+            artifacts/release-ci-verification/verification-report.json
+          if-no-files-found: error
+          retention-days: 7
