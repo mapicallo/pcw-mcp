@@ -21,7 +21,7 @@ Desde un directorio situado fuera del kit:
 mkdir pcw-test
 cd pcw-test
 npm init -y
-npm install "<ruta-al-kit>\package\pcw-mcp-0.2.0-beta.4.tgz" --omit=dev
+npm install "<ruta-al-kit>\package\pcw-mcp-0.3.0-beta.1.tgz" --omit=dev
 ```
 
 ```powershell

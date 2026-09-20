@@ -1,6 +1,6 @@
-# PCW v0.2 Private Beta Contract
+# PCW Private Beta Contract
 
-This document defines the externally observable contract of PCW-MCP `0.2.0-beta.4`. It preserves the frozen beta.3 contract and adds safe in-root context onboarding and inventory replacement; it is not a `1.0` stability claim or a published release.
+This document defines the externally observable contract retained by the untagged PCW-MCP `0.3.0-beta.1` candidate. Its runtime behavior is unchanged from the frozen `0.2.0-beta.4` baseline, which added safe in-root context onboarding and inventory replacement. This is not a `1.0` stability claim or a published release.
 
 Detailed contracts live in [MCP tools](mcp-tools.md), [pcw.yml](pcw-yml.md), and the [private beta guide](private-beta.md).
 
@@ -20,9 +20,9 @@ Source modules, service classes, helper functions, temporary filenames, and inte
 
 ## Identity And Versioning
 
-`package.json` is the single software-version source of truth. The MCP server and `--version` derive `0.2.0-beta.4` from it. Software version and `pcw.yml.version` are separate: the latter is an optional string or number under the current configuration contract.
+`package.json` is the single software-version source of truth. The MCP server and `--version` derive `0.3.0-beta.1` from it. Software version and `pcw.yml.version` are separate: the latter is an optional string or number under the current configuration contract.
 
-Beta.1, beta.2, and beta.3 are frozen by annotated tags. Beta.4 is not tagged or published by this development block.
+The `0.2.0-beta.1` through `0.2.0-beta.4` baselines are frozen by annotated tags. `0.3.0-beta.1` is not yet tagged or published.
 
 ## Runtime
 
@@ -36,7 +36,7 @@ The root must exist, be a directory, and contain a `pcw.yml` file. The declared 
 
 ## MCP Tools
 
-The beta.4 baseline contains exactly 16 tools:
+The beta.1 candidate retains exactly 16 tools:
 
 `create_workstream`, `create_shared_context`, `enable_workstream_context`, `get_project_info`, `list_workstreams`, `get_workstream_info`, `get_continuity`, `list_shared_context`, `list_sources`, `get_inventory`, `search_inventory`, `update_inventory`, `read_text_source`, `read_docx_source`, `read_pdf_source`, and `update_continuity`.
 
@@ -78,7 +78,7 @@ A stale continuity payload preserves `workstream`, `expectedSha256`, `currentSha
 
 ## Path Exposure
 
-`absolutePath` and `backupPath` remain part of the local `0.2` beta contract. They reveal local filesystem topology and must be reconsidered before remote MCP or shared-server deployment.
+`absolutePath` and `backupPath` remain part of the local private-beta contract. They reveal local filesystem topology and must be reconsidered before remote MCP or shared-server deployment.
 
 ## Continuity Update Protocol
 
@@ -103,4 +103,4 @@ PCW is pre-1.0. Fixes should preserve this documented contract. Additive fields/
 
 The private package allowlists compiled output, bilingual private-beta terms and onboarding, public documentation, templates, and the synthetic sample context. Source, tests, fixtures, Git state, and project `CONTINUITY.md` are excluded. Repository metadata points to the credential-free Git origin. Author metadata remains unset because it has not been established.
 
-The owner selected a proprietary private-beta model. Package metadata declares `UNLICENSED` with `private: true`; no open-source license or redistribution right is granted. The English and Spanish private-beta terms permit only authorized private evaluation. Nothing in this block publishes the package, transmits the handoff kit, or creates a beta.4 release tag.
+The owner selected a proprietary private-beta model. Package metadata declares `UNLICENSED` with `private: true`; no open-source license or redistribution right is granted. The English and Spanish private-beta terms permit only authorized private evaluation. Preparing this candidate does not publish the package, transmit the handoff kit, or create a `v0.3.0-beta.1` release tag.

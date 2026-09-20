@@ -44,7 +44,7 @@ npm run release:build -- --channel private-beta --release --released-at 2026-09-
 The date must be explicitly approved and canonical UTC. Release grade retains
 the manifest generator's requirements: clean Git tree, annotated
 `v<package-version>` tag at HEAD, and Git-ignored or external output. It is
-not available for the current untagged development version. See
+not available for the current untagged release candidate. See
 [release manifest generation](release-manifest.md) for the provenance contract.
 
 The architecture names `private-beta`, `beta`, and `stable`, but this command

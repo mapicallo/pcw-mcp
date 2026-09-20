@@ -23,7 +23,7 @@ Descriptor example (paths are relative to the descriptor file):
     {
       "artifactId": "core-npm-tarball",
       "type": "npm-tarball",
-      "file": "pcw-mcp-0.3.0-dev.0.tgz",
+      "file": "pcw-mcp-0.3.0-beta.1.tgz",
       "target": { "os": "any", "arch": "any" },
       "runtime": { "node": ">=22.9.0" }
     }
@@ -67,7 +67,7 @@ For a release-grade manifest, pass `--release` and an explicit canonical UTC
 timestamp such as `--released-at 2026-09-19T12:00:00.000Z`. The timestamp
 must be the approved release date, not the time the command runs. Release
 grade requires a clean tree and a matching annotated version tag; it cannot
-be used for the current untagged `0.3.0-dev.0` development line. The frozen
+be used for the current untagged `0.3.0-beta.1` candidate. The frozen
 `v0.2.0-beta.4` tag is not changed or reused by this script.
 The matching annotated tag must resolve to HEAD; release output records
 `source.dirty: false`.

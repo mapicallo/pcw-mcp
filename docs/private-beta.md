@@ -1,6 +1,6 @@
 # PCW-MCP Private Beta Guide
 
-PCW-MCP `0.2.0-beta.4` is a frozen, tagged local-only private-beta baseline. It is not published or available through a remote transport.
+PCW-MCP `0.3.0-beta.1` is an untagged, unpublished private-beta release candidate. The historical `0.2.0-beta.4` baseline remains frozen and tagged. PCW is local-only; remote MCP transport is not available.
 
 ## Prerequisites
 
@@ -109,7 +109,7 @@ This compiles, runs the standard suite, creates and clean-installs a temporary p
 
 ## Handoff Artifact
 
-The owner can build the ignored local handoff kit with `npm run package:private-beta`. The beta.4 ZIP and external SHA-256 file are written under `artifacts/private-beta/0.2.0-beta.4/`. The command verifies the candidate, extracts the ZIP, installs its exact tarball, and exercises context onboarding, inventory replacement, workstream creation, and continuity concurrency through the installed MCP server before retaining the artifacts.
+The owner can build the ignored local handoff kit with `npm run package:private-beta`. The beta.1 ZIP and external SHA-256 file are written under `artifacts/private-beta/0.3.0-beta.1/`. The command verifies the candidate, extracts the ZIP, installs its exact tarball, and exercises context onboarding, inventory replacement, workstream creation, and continuity concurrency through the installed MCP server before retaining the artifacts.
 
 The kit is for an authorized tester under `PRIVATE-BETA-TERMS.md`; this command does not publish or transmit it.
 
