@@ -48,8 +48,8 @@ node dist/bootstrap.js init-context --context-root <absolute-path>
 Success is one JSON object on stdout. Failures are one JSON object on stderr
 with a nonzero exit status. The command delegates to the Core initialization
 service and creates only a deterministic minimal `pcw.yml`; it does not create
-sample content or an implicit workstream. This source capability is intended
-for a future canonical Core release and does not alter the already frozen
+sample content or an implicit workstream. This capability is included in the
+`0.3.0-beta.2` release candidate and does not alter the already frozen
 `0.3.0-beta.1` artifact.
 
 ## Process Options

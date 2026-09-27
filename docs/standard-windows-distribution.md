@@ -1,8 +1,8 @@
 # Standard Windows Distribution Architecture and Runtime (BLOCK 30A/30B)
 
-Status: **runtime staging, client adapters, and engineering installer skeleton validated**. Not a release installer.
-Development identity: PCW Core `0.3.0-beta.2-dev.0` (`pcw-mcp`).
-Frozen release baseline: `v0.3.0-beta.1`; current engineering outputs are not that release.
+Status: **Standard Windows release candidate validated but not tagged or published**.
+Candidate identity: PCW Core `0.3.0-beta.2` (`pcw-mcp`).
+Frozen release baseline: `v0.3.0-beta.1`; candidate outputs do not replace that release.
 Branch inspected: `v0.3-distribution`.
 
 Related prior decision: [distribution-architecture.md](distribution-architecture.md)
@@ -272,7 +272,7 @@ User-facing summary:
 ```text
 PCW Doctor
 ✓ Runtime
-✓ PCW 0.3.0-beta.1
+✓ PCW 0.3.0-beta.2
 ✓ Context root
 ✓ Configuration
 ✓ Client integration (if selected)
@@ -314,7 +314,7 @@ Proposed addition (when built):
 ```yaml
 artifactId: standard-windows-installer
 type: windows-installer
-fileName: PCW-Setup-0.3.0-beta.1.exe
+fileName: PCW-Setup-0.3.0-beta.2.exe
 target: { os: windows, arch: x64 }
 ```
 
@@ -757,10 +757,9 @@ roots, runtime overlap, and supported link/reparse-point hazards fail closed.
 Configuration publication is exclusive and followed by validation through the
 normal Core loader.
 
-This capability is present only in development source after the frozen
-`0.3.0-beta.1` release. A future canonical Core release must include it before
-a Standard installer using new-context mode can be distributed. BLOCK 30D.1
-does not compile, tag, publish, or replace any frozen artifact.
+This capability was introduced after the frozen `0.3.0-beta.1` release and is
+included in the `0.3.0-beta.2` release candidate. BLOCK 30D.1 did not compile,
+tag, publish, or replace any frozen artifact.
 
 ## 36. BLOCK 30D.2 observed Windows engineering spike
 

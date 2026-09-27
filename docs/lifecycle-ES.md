@@ -18,7 +18,7 @@ En un directorio local dedicado:
 
 ```powershell
 npm init -y
-npm install "<handoff>\package\pcw-mcp-0.3.0-beta.1.tgz" --omit=dev
+npm install "<handoff>\package\pcw-mcp-0.3.0-beta.2.tgz" --omit=dev
 ```
 
 ## Desactivar o desconectar

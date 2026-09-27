@@ -23,7 +23,7 @@ Descriptor example (paths are relative to the descriptor file):
     {
       "artifactId": "core-npm-tarball",
       "type": "npm-tarball",
-      "file": "pcw-mcp-0.3.0-beta.1.tgz",
+      "file": "pcw-mcp-0.3.0-beta.2.tgz",
       "target": { "os": "any", "arch": "any" },
       "runtime": { "node": ">=22.9.0" }
     }

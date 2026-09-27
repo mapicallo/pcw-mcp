@@ -1,10 +1,10 @@
 # PCW-MCP Private Beta Guide
 
-PCW-MCP `0.3.0-beta.1` is the frozen authorized private-beta release. Current development source uses `0.3.0-beta.2-dev.0`; it is not a release and must not replace beta.1 artifacts. The historical `0.2.0-beta.4` baseline also remains frozen and tagged. PCW is local-only; remote MCP transport is not available.
+PCW-MCP `0.3.0-beta.1` is the frozen authorized private-beta release. Current source is the untagged, unpublished `0.3.0-beta.2` release candidate and must not replace beta.1 artifacts before formal authorization. The historical `0.2.0-beta.4` baseline also remains frozen and tagged. PCW is local-only; remote MCP transport is not available.
 
 ## Prerequisites
 
-- Node.js `>=22.9.0`;
+- Node.js `>=22.9.0` for the Developer/handoff package; Standard Windows bundles its pinned Node runtime;
 - the locally supplied PCW-MCP package;
 - a PCW context containing `pcw.yml`.
 
@@ -109,14 +109,16 @@ This compiles, runs the standard suite, creates and clean-installs a temporary p
 
 ## Handoff Artifact
 
-The owner can build the ignored local handoff kit with `npm run package:private-beta`. The beta.1 ZIP and external SHA-256 file are written under `artifacts/private-beta/0.3.0-beta.1/`. The command verifies the candidate, extracts the ZIP, installs its exact tarball, and exercises context onboarding, inventory replacement, workstream creation, and continuity concurrency through the installed MCP server before retaining the artifacts.
+The owner can build the ignored local handoff kit with `npm run package:private-beta`. A beta.2 candidate ZIP and external SHA-256 file would be written under `artifacts/private-beta/0.3.0-beta.2/`. The command verifies the candidate, extracts the ZIP, installs its exact tarball, and exercises context onboarding, inventory replacement, workstream creation, and continuity concurrency through the installed MCP server before retaining the artifacts. This candidate step is not release-grade and does not replace the frozen beta.1 kit.
 
 The kit is for an authorized tester under `PRIVATE-BETA-TERMS.md`; this command does not publish or transmit it.
 
 ## Current Limitations
 
 - `absolutePath` and `backupPath` remain visible for local beta operation.
-- There is no HTTP/SSE transport, authentication, installer, global CLI, remote synchronization, OCR, or automatic conflict merge.
+- Standard Windows is Windows x64 only and unsigned; SmartScreen warnings are possible.
+- Cursor integration can be applied automatically; Codex and Claude remain guided.
+- There is no MCPB, automatic updater, HTTP/SSE transport, authentication, remote synchronization, OCR, or automatic conflict merge.
 - CI currently validates Node 22 and Node 24; compatibility below the declared `>=22.9.0` minimum is unsupported.
 - The beta remains proprietary and `UNLICENSED`; redistribution or public upload is not permitted by the private evaluation terms.
 

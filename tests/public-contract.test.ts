@@ -43,6 +43,7 @@ test("package version is valid SemVer and is the runtime software version", asyn
   assert.equal(metadata.name, "pcw-mcp");
   assert.ok(typeof metadata.version === "string");
   assert.match(metadata.version, semverPattern);
+  assert.equal(metadata.version, "0.3.0-beta.2");
   assert.equal(PCW_SOFTWARE_VERSION, metadata.version);
 });
 
