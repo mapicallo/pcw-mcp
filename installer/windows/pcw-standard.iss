@@ -18,7 +18,6 @@
 #endif
 
 #define AppName "PCW"
-#define PrototypeBaseName "PCW-Setup-0.3.0-beta.1-prototype"
 
 [Setup]
 AppId={{F464D657-5CE8-4E9B-A51B-AB613862CA18}
@@ -32,7 +31,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
-OutputBaseFilename={#PrototypeBaseName}
+OutputBaseFilename=PCW-Setup-{#AppVersion}-prototype
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

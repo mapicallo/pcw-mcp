@@ -7,13 +7,15 @@ import test from "node:test";
 
 import {
   PINNED_INNO_SETUP_VERSION,
-  PROTOTYPE_INSTALLER_NAME,
+  prototypeInstallerName,
   buildStandardWindowsInstaller,
   parseStandardInstallerArgs
 } from "../scripts/build-standard-windows-installer.mjs";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const installerScript = join(repositoryRoot, "installer", "windows", "pcw-standard.iss");
+const developmentVersion = "0.3.0-beta.2-dev.0";
+const expectedPrototypeInstallerName = prototypeInstallerName(developmentVersion);
 
 async function fixture(run) {
   const root = await mkdtemp(join(tmpdir(), "pcw-standard-installer-"));
@@ -29,7 +31,7 @@ async function fixture(run) {
     await writeFile(join(runtimeDir, "metadata", "standard-runtime.json"), JSON.stringify({
       schemaVersion: 1,
       target: { os: "windows", arch: "x64" },
-      core: { version: "0.3.0-beta.1", sha256: "b".repeat(64) }
+      core: { version: developmentVersion, sha256: "b".repeat(64) }
     }));
     await writeFile(join(runtimeDir, "metadata", "runtime-files.json"), '{"schemaVersion":1,"files":[]}\n');
     await writeFile(join(runtimeDir, "runtime", "node.exe"), "synthetic");
@@ -57,7 +59,7 @@ test("Inno skeleton is per-user, consumes a prebuilt runtime and preserves user 
   assert.match(source, /PrivilegesRequired=lowest/u);
   assert.match(source, /DefaultDirName=\{localappdata\}\\Programs\\AI4Context\\PCW/u);
   assert.match(source, /Source: "\{#RuntimeDir\}\\\*"/u);
-  assert.match(source, /PCW-Setup-0\.3\.0-beta\.1-prototype/u);
+  assert.match(source, /OutputBaseFilename=PCW-Setup-\{#AppVersion\}-prototype/u);
   assert.match(source, /core\\standard-tools\\standard-setup\.mjs/u);
   assert.match(source, /Create a new empty PCW context/u);
   assert.match(source, /Use an existing PCW context/u);
@@ -84,16 +86,16 @@ test("installer helper pins Inno and derives metadata from the explicit runtime"
       const metadataArg = args.find((arg) => arg.startsWith("/DInstallerMetadataFile="));
       capturedMetadata = JSON.parse(readFileSync(metadataArg.slice(metadataArg.indexOf("=") + 1), "utf8"));
       mkdirSync(outputDir, { recursive: true });
-      writeFileSync(join(outputDir, PROTOTYPE_INSTALLER_NAME), "synthetic installer");
+      writeFileSync(join(outputDir, expectedPrototypeInstallerName), "synthetic installer");
       return "compiled";
     };
     const result = await buildStandardWindowsInstaller({ runtimeDir, outputDir, iscc, execute });
     assert.equal(result.compilerVersion, PINNED_INNO_SETUP_VERSION);
-    assert.equal(result.installer, join(outputDir, PROTOTYPE_INSTALLER_NAME));
+    assert.equal(result.installer, join(outputDir, expectedPrototypeInstallerName));
     assert.deepEqual(capturedMetadata, {
       schemaVersion: 1,
       productId: "pcw-standard-windows-installer-prototype",
-      softwareVersion: "0.3.0-beta.1",
+      softwareVersion: developmentVersion,
       coreTgzSha256: "b".repeat(64),
       runtimeSchemaVersion: 1,
       target: { os: "windows", arch: "x64" },
@@ -118,6 +120,6 @@ test("installer output remains outside release manifests and publication workflo
     readFile(join(repositoryRoot, "scripts", "build-release.mjs"), "utf8"),
     readFile(join(repositoryRoot, ".github", "workflows", "release-build.yml"), "utf8")
   ]);
-  assert.equal(files.some((text) => text.includes(PROTOTYPE_INSTALLER_NAME)), false);
+  assert.equal(files.some((text) => text.includes(expectedPrototypeInstallerName)), false);
   assert.equal(files.some((text) => text.includes("standard-windows-installer")), false);
 });

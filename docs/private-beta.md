@@ -1,6 +1,6 @@
 # PCW-MCP Private Beta Guide
 
-PCW-MCP `0.3.0-beta.1` is an untagged, unpublished private-beta release candidate. The historical `0.2.0-beta.4` baseline remains frozen and tagged. PCW is local-only; remote MCP transport is not available.
+PCW-MCP `0.3.0-beta.1` is the frozen authorized private-beta release. Current development source uses `0.3.0-beta.2-dev.0`; it is not a release and must not replace beta.1 artifacts. The historical `0.2.0-beta.4` baseline also remains frozen and tagged. PCW is local-only; remote MCP transport is not available.
 
 ## Prerequisites
 

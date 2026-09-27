@@ -10,7 +10,7 @@ import { unzipSync, zipSync } from "fflate";
 
 import { buildRelease, checksumText, parseReleaseBuildArgs } from "../scripts/build-release.mjs";
 
-const version = "7.8.9-dev.2";
+const version = "7.8.9-beta.2";
 const zipName = `PCW-MCP-${version}-PRIVATE-BETA.zip`;
 const tarballName = `pcw-mcp-${version}.tgz`;
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");

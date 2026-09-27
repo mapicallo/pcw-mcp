@@ -13,7 +13,8 @@ import {
   validateOutputLocation
 } from "../scripts/generate-release-manifest.mjs";
 
-const version = "7.8.9-dev.2";
+const version = "7.8.9-beta.2";
+const developmentVersion = "7.8.9-beta.3-dev.0";
 const releasedAt = "2026-09-19T12:00:00.000Z";
 
 function git(root, ...args) {
@@ -130,6 +131,25 @@ test("matching annotated version tag is reported for clean HEAD", () => fixture(
   assert.equal(manifest.releasedAt, releasedAt);
 }));
 
+test("development version cannot become release-grade even with a matching annotated tag", () =>
+  fixture(async ({ options, repositoryRoot }) => {
+    await writeFile(join(repositoryRoot, "package.json"),
+      JSON.stringify({ name: "pcw-mcp", version: developmentVersion }), "utf8");
+    git(repositoryRoot, "add", "package.json");
+    git(repositoryRoot, "-c", "user.name=PCW Test",
+      "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false",
+      "commit", "-qm", "synthetic development identity");
+    git(repositoryRoot, "-c", "user.name=PCW Test",
+      "-c", "user.email=test@example.invalid", "-c", "tag.gpgsign=false",
+      "tag", "-a", `v${developmentVersion}`, "-m", "Synthetic development tag");
+
+    const development = await createReleaseManifest(options);
+    assert.equal(development.softwareVersion, developmentVersion);
+    await assert.rejects(
+      createReleaseManifest({ ...options, releaseGrade: true, releasedAt }),
+      /refuses development software versions/
+    );
+  }));
 test("dirty worktree is visible and suppresses release tag", () => fixture(async ({
   options, repositoryRoot
 }) => {

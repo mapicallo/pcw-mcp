@@ -5,7 +5,12 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PINNED_INNO_SETUP_VERSION = "6.4.3";
-export const PROTOTYPE_INSTALLER_NAME = "PCW-Setup-0.3.0-beta.1-prototype.exe";
+export function prototypeInstallerName(version) {
+  if (typeof version !== "string" || !/^[0-9A-Za-z.+-]+$/u.test(version)) {
+    throw new Error("Standard runtime Core version is not safe for an installer filename");
+  }
+  return `PCW-Setup-${version}-prototype.exe`;
+}
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const defaultScript = join(repositoryRoot, "installer", "windows", "pcw-standard.iss");
@@ -107,7 +112,7 @@ export async function buildStandardWindowsInstaller({
       `/DInstallerMetadataFile=${installerMetadata}`,
       resolve(script)
     ], "Inno Setup compilation");
-    const installer = join(output, PROTOTYPE_INSTALLER_NAME);
+    const installer = join(output, prototypeInstallerName(metadata.core.version));
     if (!(await stat(installer)).isFile()) throw new Error(`Expected installer was not produced: ${installer}`);
     return { installer, compilerVersion, metadata };
   } finally {

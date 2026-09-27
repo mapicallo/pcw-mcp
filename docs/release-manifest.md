@@ -66,9 +66,10 @@ still verifies the artifact bytes, but does not fill that source-provenance gap.
 For a release-grade manifest, pass `--release` and an explicit canonical UTC
 timestamp such as `--released-at 2026-09-19T12:00:00.000Z`. The timestamp
 must be the approved release date, not the time the command runs. Release
-grade requires a clean tree and a matching annotated version tag; it cannot
-be used for the current untagged `0.3.0-beta.1` candidate. The frozen
-`v0.2.0-beta.4` tag is not changed or reused by this script.
+grade requires a clean tree, a matching annotated version tag, and a software
+version that is not marked as development. Versions such as
+`0.3.0-beta.2-dev.0` are refused even if a matching tag exists. The frozen
+`v0.3.0-beta.1` and earlier tags are not changed or reused by this script.
 The matching annotated tag must resolve to HEAD; release output records
 `source.dirty: false`.
 Release-grade output must be outside the repository or in a Git-ignored path,

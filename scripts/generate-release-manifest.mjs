@@ -13,6 +13,9 @@ const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const softwareVersionSchema = z.string().regex(
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
 );
+function isDevelopmentSoftwareVersion(version) {
+  return /(?:^|[.-])dev(?:[.-]|$)/iu.test(version);
+}
 const targetSchema = z.object({
   os: z.enum(["any", "windows", "macos", "linux"]),
   arch: z.enum(["any", "x64", "arm64"])
@@ -140,6 +143,9 @@ export async function createReleaseManifest({
   const packageJson = readJson(await readFile(packagePath, "utf8"), packagePath);
   const productId = validate(identifier, packageJson.name, "package name");
   const softwareVersion = validate(softwareVersionSchema, packageJson.version, "package version");
+  if (releaseGrade && isDevelopmentSoftwareVersion(softwareVersion)) {
+    throw new Error("Release-grade manifest refuses development software versions");
+  }
   const validatedChannel = validate(z.enum(channels), channel, "channel");
   const source = gitProvenance(root, softwareVersion, releaseGrade);
   if (releaseGrade && releasedAt === undefined) {

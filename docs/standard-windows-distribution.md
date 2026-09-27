@@ -1,7 +1,8 @@
 # Standard Windows Distribution Architecture and Runtime (BLOCK 30A/30B)
 
 Status: **runtime staging, client adapters, and engineering installer skeleton validated**. Not a release installer.
-Software baseline: PCW Core `0.3.0-beta.1` (`pcw-mcp`).
+Development identity: PCW Core `0.3.0-beta.2-dev.0` (`pcw-mcp`).
+Frozen release baseline: `v0.3.0-beta.1`; current engineering outputs are not that release.
 Branch inspected: `v0.3-distribution`.
 
 Related prior decision: [distribution-architecture.md](distribution-architecture.md)
@@ -613,8 +614,9 @@ BLOCK 30D adds an unsigned Inno Setup skeleton around the prebuilt Standard
 runtime. It is engineering-only and is deliberately excluded from release
 manifests, checksums, GitHub publication, Vercel, and AI4Context downloads.
 The prototype output name is
-`PCW-Setup-0.3.0-beta.1-prototype.exe` so it cannot be mistaken for a frozen
-release artifact.
+`PCW-Setup-0.3.0-beta.2-dev.0-prototype.exe`; its version is derived from
+the explicit Standard runtime Core metadata so it cannot be mistaken for the frozen
+`0.3.0-beta.1` release artifact.
 
 ### Toolchain and build input
 
