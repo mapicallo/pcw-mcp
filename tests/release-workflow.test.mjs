@@ -21,7 +21,7 @@ test("one producer transports the canonical Core to reusable Windows packaging",
   const core = workflow.jobs.core;
   assert.equal(core.needs, "validate");
   assert.match(core.steps.find((step) => step.name === "Produce canonical Core once").run,
-    /release-transport-cli\.mjs create-core/u);
+    /npm run release:transport -- create-core/u);
   const upload = core.steps.find((step) => step.name === "Transport canonical Core bytes to Windows");
   assert.equal(upload.uses, "actions/upload-artifact@v4");
   assert.equal(upload.with["retention-days"], 1);

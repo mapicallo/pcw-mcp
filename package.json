@@ -12,6 +12,7 @@
     "package:private-beta": "node scripts/package-private-beta.mjs",
     "release:manifest": "node scripts/generate-release-manifest.mjs",
     "release:build": "node scripts/build-release.mjs",
+    "release:transport": "node scripts/release-transport-cli.mjs",
     "standard:runtime": "node scripts/build-standard-windows-runtime.mjs",
     "standard:installer": "node scripts/build-standard-windows-installer.mjs"
   },

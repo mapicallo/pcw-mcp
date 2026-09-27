@@ -73,7 +73,7 @@ jobs:
           echo "release-invocation=github-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
       - name: Produce canonical Core once
         run: >-
-          node scripts/release-transport-cli.mjs create-core
+          npm run release:transport -- create-core
           --repository-root "$GITHUB_WORKSPACE"
           --output-directory artifacts/core-transport
           --source-commit "${{ github.sha }}"
