@@ -45,19 +45,22 @@ async function fixture(run) {
 }
 
 test("installer build CLI requires explicit runtime, output and compiler paths", () => {
+  const runtimePath = resolve("runtime");
+  const outputPath = resolve("output");
+  const compilerPath = resolve("Inno Setup 6", "ISCC.exe");
   assert.deepEqual(parseStandardInstallerArgs([
-    "--runtime-dir", "C:\\runtime", "--output-dir", "C:\\output", "--iscc", "C:\\inno\\ISCC.exe"
-  ]), { runtimeDir: "C:\\runtime", outputDir: "C:\\output", iscc: "C:\\inno\\ISCC.exe", mode: "release" });
+    "--runtime-dir", runtimePath, "--output-dir", outputPath, "--iscc", compilerPath
+  ]), { runtimeDir: runtimePath, outputDir: outputPath, iscc: compilerPath, mode: "release" });
   assert.equal(parseStandardInstallerArgs([
-    "--runtime-dir", "C:\\runtime", "--output-dir", "C:\\output", "--iscc", "C:\\inno\\ISCC.exe",
+    "--runtime-dir", runtimePath, "--output-dir", outputPath, "--iscc", compilerPath,
     "--mode", "engineering"
   ]).mode, "engineering");
-  assert.throws(() => parseStandardInstallerArgs(["--runtime-dir", "C:\\runtime"]), /outputDir is required/);
+  assert.throws(() => parseStandardInstallerArgs(["--runtime-dir", runtimePath]), /outputDir is required/);
   assert.throws(() => parseStandardInstallerArgs([
-    "--runtime-dir", "relative", "--output-dir", "C:\\output", "--iscc", "C:\\inno\\ISCC.exe"
+    "--runtime-dir", "relative", "--output-dir", outputPath, "--iscc", compilerPath
   ]), /runtimeDir must be an absolute path/);
   assert.throws(() => parseStandardInstallerArgs([
-    "--runtime-dir", "C:\\runtime", "--output-dir", "C:\\output", "--iscc", "C:\\inno\\ISCC.exe",
+    "--runtime-dir", runtimePath, "--output-dir", outputPath, "--iscc", compilerPath,
     "--mode", "production-ish"
   ]), /mode must be release or engineering/);
 });

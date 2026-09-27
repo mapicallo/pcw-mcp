@@ -3,7 +3,6 @@ import { execFile, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   access,
-  chmod,
   copyFile,
   mkdir,
   mkdtemp,
@@ -32,6 +31,9 @@ const doctorSource = join(repositoryRoot, "scripts", "standard-runtime-doctor.mj
 const setupSource = join(repositoryRoot, "scripts", "standard-setup.mjs");
 const integrationsSource = join(repositoryRoot, "scripts", "standard-integrations");
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const windowsOnly = {
+  skip: process.platform === "win32" ? false : "Standard Windows runtime execution requires Windows"
+};
 
 async function createFixture(run) {
   const root = await mkdtemp(join(tmpdir(), "pcw-standard-runtime-test-"));
@@ -101,7 +103,6 @@ process.stdin.on("data", chunk => {
     const nodeRuntime = join(root, "node-input");
     await mkdir(nodeRuntime);
     await copyFile(process.execPath, join(nodeRuntime, "node.exe"));
-    if (process.platform !== "win32") await chmod(join(nodeRuntime, "node.exe"), 0o755);
     const installDependencies = async ({ coreDirectory }) => {
       const moduleRoot = join(coreDirectory, "node_modules", "synthetic-runtime-dependency");
       await mkdir(moduleRoot, { recursive: true });
@@ -147,7 +148,7 @@ test("standard runtime CLI requires explicit Core, Node and output inputs", () =
   );
 });
 
-test("runtime preserves canonical Core bytes and deterministic provenance", () =>
+test("runtime preserves canonical Core bytes and deterministic provenance", windowsOnly, () =>
   createFixture(async (fixture) => {
     const outputA = join(fixture.root, "runtime-a");
     const outputB = join(fixture.root, "runtime-b");
@@ -183,7 +184,7 @@ test("runtime preserves canonical Core bytes and deterministic provenance", () =
     assert.equal(JSON.parse(helper.stdout).status, "valid");
   }));
 
-test("incompatible package lock fails without replacing an existing runtime", () =>
+test("incompatible package lock fails without replacing an existing runtime", windowsOnly, () =>
   createFixture(async (fixture) => {
     const output = join(fixture.root, "runtime");
     await assembleStandardWindowsRuntime(buildOptions(fixture, output));
@@ -199,7 +200,7 @@ test("incompatible package lock fails without replacing an existing runtime", ()
     assert.equal(await readFile(marker, "utf8"), "preserved");
   }));
 
-test("doctor accepts an officially initialized empty context and remains read-only", () =>
+test("doctor accepts an officially initialized empty context and remains read-only", windowsOnly, () =>
   createFixture(async (fixture) => {
     const runtimeRoot = join(fixture.root, "runtime");
     await assembleStandardWindowsRuntime(buildOptions(fixture, runtimeRoot));
@@ -222,7 +223,7 @@ test("doctor accepts an officially initialized empty context and remains read-on
     assert.deepEqual(await readFile(join(contextRoot, "pcw.yml")), before);
   }));
 
-test("doctor detects corrupt runtime and invalid or missing contexts", () =>
+test("doctor detects corrupt runtime and invalid or missing contexts", windowsOnly, () =>
   createFixture(async (fixture) => {
     const runtimeRoot = join(fixture.root, "runtime");
     await assembleStandardWindowsRuntime(buildOptions(fixture, runtimeRoot));
