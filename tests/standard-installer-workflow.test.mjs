@@ -32,10 +32,19 @@ test("Windows installer CI uses explicit builders and conditional transport", as
   assert.match(workflow, /if: inputs\.core-artifact-name != ''[\s\S]*actions\/upload-artifact/iu);
 });
 
-test("Windows installer CI performs a disposable lifecycle without client mutation", async () => {
+test("Windows installer CI uses engineering overrides or official defaults without client mutation", async () => {
   const workflow = await readFile(workflowPath, "utf8");
   assert.match(workflow, /PCW_STANDARD_ROOT/u);
   assert.match(workflow, /Synthetic Standard Context/u);
+  assert.match(workflow, /if \(\$buildA\.prototype\)/u);
+  assert.match(workflow, /else \{\s*\$contextRoot = Join-Path \$env:USERPROFILE 'PCW\\My-PCW-Context'/u);
+  const prototypeBranch = workflow.slice(
+    workflow.indexOf("if ($buildA.prototype)"),
+    workflow.indexOf("} else {", workflow.indexOf("if ($buildA.prototype)"))
+  );
+  assert.match(prototypeBranch, /PCWContext=/u);
+  assert.match(prototypeBranch, /PCWStateRoot=/u);
+  assert.match(prototypeBranch, /PCWHomeDirectory=/u);
   assert.match(workflow, /pcw-doctor\.cmd/u);
   assert.match(workflow, /verify-installed-standard-lifecycle\.mjs/u);
   assert.match(workflow, /STANDARD-INSTALLER-CI\.md/u);

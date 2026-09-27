@@ -142,14 +142,19 @@ jobs:
           $buildA = Get-Content -Raw (Join-Path $env:PCW_STANDARD_ROOT 'installer-a.json') | ConvertFrom-Json
           $installer = $buildA.installer
           $installRoot = Join-Path $env:PCW_STANDARD_ROOT 'installed'
-          $contextRoot = Join-Path $env:PCW_STANDARD_ROOT 'contexts\Synthetic Standard Context'
-          $stateRoot = Join-Path $env:PCW_STANDARD_ROOT 'state'
-          $homeRoot = Join-Path $env:PCW_STANDARD_ROOT 'home'
-          $setup = Start-Process $installer -ArgumentList @(
-            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
-            "/DIR=`"$installRoot`"", "/PCWContext=`"$contextRoot`"", '/PCWContextMode=new',
-            "/PCWStateRoot=`"$stateRoot`"", "/PCWHomeDirectory=`"$homeRoot`""
-          ) -Wait -PassThru
+          $setupArguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=`"$installRoot`"")
+          if ($buildA.prototype) {
+            $contextRoot = Join-Path $env:PCW_STANDARD_ROOT 'contexts\Synthetic Standard Context'
+            $stateRoot = Join-Path $env:PCW_STANDARD_ROOT 'state'
+            $homeRoot = Join-Path $env:PCW_STANDARD_ROOT 'home'
+            $setupArguments += @(
+              "/PCWContext=`"$contextRoot`"", '/PCWContextMode=new',
+              "/PCWStateRoot=`"$stateRoot`"", "/PCWHomeDirectory=`"$homeRoot`""
+            )
+          } else {
+            $contextRoot = Join-Path $env:USERPROFILE 'PCW\My-PCW-Context'
+          }
+          $setup = Start-Process $installer -ArgumentList $setupArguments -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "PCW install failed: $($setup.ExitCode)" }
           & (Join-Path $installRoot 'bin\pcw-doctor.cmd') --context-root $contextRoot
           if ($LASTEXITCODE -ne 0) { throw 'Installed Doctor failed' }
