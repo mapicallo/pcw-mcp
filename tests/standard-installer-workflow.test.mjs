@@ -27,6 +27,7 @@ test("Windows installer CI uses explicit builders and engineering isolation", as
 
 test("Windows installer CI performs a disposable lifecycle without client mutation", async () => {
   const workflow = await readFile(workflowPath, "utf8");
+  assert.match(workflow, /\$root = 'C:\\pcw-standard-ci-\$\{\{ github\.run_id \}\}'/u);
   assert.match(workflow, /Proyecto Ágil & QA \(2026\)\\日本語/u);
   assert.match(workflow, /pcw-doctor\.cmd/u);
   assert.match(workflow, /unins000\.exe/u);

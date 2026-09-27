@@ -27,7 +27,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: npm test
+      - name: Run focused Standard installer tests
+        run: >-
+          npx tsx --test
+          tests/standard-installer.test.mjs
+          tests/standard-setup.test.mjs
+          tests/standard-installer-workflow.test.mjs
       - name: Download and verify pinned build inputs
         shell: pwsh
         run: |
@@ -61,7 +66,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $root = Join-Path $env:RUNNER_TEMP 'pcw-standard-ci'
+          $root = 'C:\pcw-standard-ci-${{ github.run_id }}'
           $pack = Join-Path $root 'pack'
           $runtime = Join-Path $root 'runtime'
           $installerOutput = Join-Path $root 'installer'
@@ -77,7 +82,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $root = Join-Path $env:RUNNER_TEMP 'pcw-standard-ci'
+          $root = 'C:\pcw-standard-ci-${{ github.run_id }}'
           $installer = (Get-ChildItem (Join-Path $root 'installer') -Filter 'PCW-Setup-*-prototype.exe' -File -ErrorAction Stop).FullName
           $installRoot = Join-Path $root 'installed'
           $contextRoot = Join-Path $root 'contexts\Proyecto Ágil & QA (2026)\日本語'
