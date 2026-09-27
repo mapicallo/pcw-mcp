@@ -22,6 +22,7 @@ import {
   sha256File
 } from "../scripts/standard-runtime.mjs";
 import { runDoctor } from "../scripts/standard-runtime-doctor.mjs";
+import { initializeContextRoot } from "../dist/initialization/context-initializer.js";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = resolve(import.meta.dirname, "..");
@@ -170,8 +171,8 @@ test("runtime preserves canonical Core bytes and deterministic provenance", () =
     await access(join(outputA, "core", "standard-tools", "standard-setup.mjs"));
     await access(join(outputA, "core", "standard-tools", "standard-integrations", "index.mjs"));
     const contextRoot = join(fixture.root, "helper context");
-    await mkdir(contextRoot);
-    await writeFile(join(contextRoot, "pcw.yml"), "version: 1\nworkstreams: {}\n");
+    const initialized = await initializeContextRoot({ contextRoot });
+    assert.equal(initialized.workstreamCount, 0);
     const helper = await execFileAsync(join(outputA, "runtime", "node.exe"), [
       join(outputA, "core", "standard-tools", "standard-setup.mjs"),
       "validate-context", "--runtime-root", outputA, "--context-root", contextRoot
@@ -196,13 +197,13 @@ test("incompatible package lock fails without replacing an existing runtime", ()
     assert.equal(await readFile(marker, "utf8"), "preserved");
   }));
 
-test("doctor reports healthy runtime and leaves an existing context unchanged", () =>
+test("doctor accepts an officially initialized empty context and remains read-only", () =>
   createFixture(async (fixture) => {
     const runtimeRoot = join(fixture.root, "runtime");
     await assembleStandardWindowsRuntime(buildOptions(fixture, runtimeRoot));
-    const contextRoot = join(fixture.root, "existing-context");
-    await mkdir(contextRoot);
-    await writeFile(join(contextRoot, "pcw.yml"), "version: 1\nworkstreams: {}\n");
+    const contextRoot = join(fixture.root, "empty-context");
+    const initialized = await initializeContextRoot({ contextRoot });
+    assert.equal(initialized.workstreamCount, 0);
     const before = await readFile(join(contextRoot, "pcw.yml"));
     const results = await runDoctor({
       runtimeRoot,

@@ -475,11 +475,10 @@ of duplicating the Zod schema.
 
 ## 31. Initialization decision
 
-Blank-root initialization is deferred. The current pcw-minimal.yml template
-includes a placeholder workstream, while 30B requires no workstream creation.
-Generating another shape in the wrapper would duplicate domain policy. A
-bounded Core initialization API or no-workstream template needs approval
-before Standard writes new roots. Existing valid roots work unchanged.
+BLOCK 30B originally deferred blank-root initialization so the Standard wrapper
+would not duplicate Core domain policy. BLOCK 30D.1 resolves that gate with a
+Core-owned initializer. Standard delegates to that service and never generates
+`pcw.yml` itself. Existing valid roots continue to work unchanged.
 
 ## 32. Measured local staging result
 
@@ -665,21 +664,27 @@ human diagnostics onto MCP stdout.
 
 ### Wizard and helper contract
 
-The prototype wizard follows: Welcome, install location, existing context,
+The prototype wizard follows: Welcome, install location, create-or-use context,
 client integration, registration name, review, installing, verification, and
 finish. Normal pages do not expose TGZ, npm, `node_modules`, package locks, or
 stdio details.
 
-The context page accepts only an existing context containing `pcw.yml`. This
-is a lightweight UI preflight, not schema validation. After runtime copy and
-before finish, the installed helper loads the configuration through compiled
-Core `loadPcwConfig`; it does not duplicate the Zod schema. The page states
-that new-context creation is not enabled in this prototype.
+The context flow offers either creation of a new empty context or use of an
+existing root. New-context mode calls `init-context` and then
+`validate-context`; existing mode validates only. The installed helper uses the
+compiled Core initializer and `loadPcwConfig`, so Inno contains no YAML or
+duplicate Zod schema. The suggested root is
+`%USERPROFILE%\PCW\My-PCW-Context`: `%USERPROFILE%\PCW` is a contexts home,
+not one global context. The installer creates that container when needed and
+preserves it on uninstall; it never claims ownership of child context roots.
+Separate projects should use sibling roots such as `Project-A`, `Project-B`,
+and `Personal`.
 
 The runtime now includes `core/standard-tools/standard-setup.mjs` and the 30C integration
 modules. Its machine commands are:
 
-- `validate-context`: validate an existing root through Core;
+- `init-context`: delegate safe empty-root creation to the installed Core initializer;
+- `validate-context`: validate an initialized root through Core;
 - `detect-clients`: inspect only explicitly supplied/injected client roots;
 - `plan`: return a dry-run integration plan with zero mutation;
 - `apply`: delegate supported mutation to the 30C service;
@@ -700,7 +705,7 @@ guided/MCPB-planned information without changing legacy JSON.
 
 ### Transaction, reinstall, and uninstall
 
-The orchestration order is: copy runtime, validate installed runtime/context,
+The orchestration order is: copy runtime, initialize when requested, validate installed runtime/context,
 plan integration, apply selected supported integration, verify, run Doctor,
 and finish. Runtime installation may remain when integration fails; the error
 is shown, the context is never removed, and 30C rollback/recovery semantics
@@ -732,15 +737,21 @@ The prototype is unsigned, so Windows SmartScreen warnings are expected.
 Signing and post-signature artifact hashing remain release-pipeline work.
 No installer output is added to the release artifact set in BLOCK 30D.
 
-### Blank-root gate
+### Official empty-root initialization
 
-The installer architecture is technically ready for an executable engineering
-spike against existing valid PCW contexts, subject to compilation with pinned
-Inno Setup 6.4.3. It is **not ready for the real User1 Standard pilot** because
-Core has no approved new-context initialization contract.
+BLOCK 30D.1 adds the bounded Core-owned initialization contract required by the
+Standard pilot. It creates only a deterministic `pcw.yml` with schema version 1
+and an empty `workstreams` map. It creates no inventory, continuity, shared
+context, sample document, or fake workstream.
 
-The next bounded block should add and test one official Core-owned
-initialization API/contract that creates a minimal valid context without an
-implicit workstream. Only after that contract is approved should the installer
-offer new-root creation. The Inno script must continue to call the Core helper
-rather than generating `pcw.yml` itself.
+The final context directory may be created when its parent is an existing plain
+directory. An existing empty directory is accepted. A valid initialized root is
+idempotent and is not rewritten. Invalid `pcw.yml`, unrelated files, filesystem
+roots, runtime overlap, and supported link/reparse-point hazards fail closed.
+Configuration publication is exclusive and followed by validation through the
+normal Core loader.
+
+This capability is present only in development source after the frozen
+`0.3.0-beta.1` release. A future canonical Core release must include it before
+a Standard installer using new-context mode can be distributed. BLOCK 30D.1
+does not compile, tag, publish, or replace any frozen artifact.

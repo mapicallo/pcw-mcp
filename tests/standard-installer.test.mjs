@@ -58,7 +58,13 @@ test("Inno skeleton is per-user, consumes a prebuilt runtime and preserves user 
   assert.match(source, /DefaultDirName=\{localappdata\}\\Programs\\AI4Context\\PCW/u);
   assert.match(source, /Source: "\{#RuntimeDir\}\\\*"/u);
   assert.match(source, /PCW-Setup-0\.3\.0-beta\.1-prototype/u);
-  assert.match(source, /standard-setup\.mjs/u);
+  assert.match(source, /core\\standard-tools\\standard-setup\.mjs/u);
+  assert.match(source, /Create a new empty PCW context/u);
+  assert.match(source, /Use an existing PCW context/u);
+  assert.match(source, /RunSetupHelper\('init-context'/u);
+  assert.match(source, /RunSetupHelper\('validate-context'/u);
+  assert.match(source, /\{userprofile\}\\PCW\\My-PCW-Context/u);
+  assert.match(source, /Name: "\{userprofile\}\\PCW"; Flags: uninsneveruninstall/u);
   assert.match(source, /--all-owned/u);
   assert.match(source, /context roots and recovery backups will be preserved/iu);
   assert.doesNotMatch(source, /npm\s+(ci|install)/iu);
@@ -66,6 +72,8 @@ test("Inno skeleton is per-user, consumes a prebuilt runtime and preserves user 
   assert.doesNotMatch(source, /ChangesEnvironment|PATH=/iu);
   assert.doesNotMatch(source, /DestDir:.*context/iu);
   assert.doesNotMatch(source, /pcw\.yml";\s*DestDir/iu);
+  assert.doesNotMatch(source, /workstreams\s*:/iu);
+  assert.doesNotMatch(source, /version\s*:\s*1/iu);
 });
 
 test("installer helper pins Inno and derives metadata from the explicit runtime", () =>

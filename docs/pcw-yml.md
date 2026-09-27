@@ -92,6 +92,30 @@ This convention applies only to automatic creation. Existing and manually edited
 
 These conventions authorize only generated locations inside the selected PCW root. External documents must be copied into them by an authorized human before PCW can discover or read them.
 
+## Official Empty Context
+
+Core initialization creates the smallest deterministic valid root:
+
+```yaml
+version: 1
+workstreams: {}
+```
+
+This represents an initialized PCW context with zero workstreams, no inventory,
+no shared context, no continuity, and no synthetic project content. The project
+metadata fields returned by `get_project_info` are `null` until configured.
+`list_workstreams` returns an empty array, and the existing `create_workstream`
+operation can create the first durable workstream without migration or manual
+YAML editing.
+
+The Core-owned `initializeContextRoot` service accepts an absolute context root.
+It may create only the final directory when its parent already exists, or use an
+existing empty directory. A valid existing `pcw.yml` returns
+`already-initialized` without rewriting bytes. Invalid configuration, unrelated
+files, filesystem roots, protected runtime overlap, and link/reparse-point
+surprises are refused. The generated file contains no timestamp, username,
+hostname, or random identifier.
+
 ## Minimal Useful Context
 
 Although every top-level schema property is optional, tools can only expose resources that are configured. A small useful context can contain one inventory and one continuity-only workstream:

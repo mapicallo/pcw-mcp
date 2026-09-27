@@ -40,12 +40,16 @@ UninstallDisplayName=PCW {#AppVersion} Standard prototype
 LicenseFile={#RuntimeDir}\core\PRIVATE-BETA-TERMS.md
 SetupLogging=yes
 
+[Dirs]
+Name: "{userprofile}\PCW"; Flags: uninsneveruninstall
+
 [Files]
 Source: "{#RuntimeDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#InstallerMetadataFile}"; DestDir: "{app}\metadata"; DestName: "installer.json"; Flags: ignoreversion
 
 [Code]
 var
+  ContextModePage: TInputOptionWizardPage;
   ContextPage: TInputDirWizardPage;
   ClientPage: TInputOptionWizardPage;
   RegistrationPage: TInputQueryWizardPage;
@@ -67,7 +71,7 @@ end;
 
 function SetupHelperPath(): String;
 begin
-  Result := ExpandConstant('{app}\tools\standard-setup.mjs');
+  Result := ExpandConstant('{app}\core\standard-tools\standard-setup.mjs');
 end;
 
 function PortableNodePath(): String;
@@ -110,11 +114,19 @@ end;
 
 procedure InitializeWizard();
 begin
-  ContextPage := CreateInputDirPage(wpSelectDir, 'PCW Context',
-    'Select an existing PCW context',
-    'Creating a new PCW context will be added before the Standard beta pilot.' + #13#10 +
-    'For this installer prototype, select an existing PCW context.');
-  ContextPage.Add('Existing PCW context root:');
+  ContextModePage := CreateInputOptionPage(wpSelectDir, 'PCW Context',
+    'Create or use a PCW context',
+    'Each project has its own context root. One PCW installation can serve multiple context roots.',
+    True, True);
+  ContextModePage.Add('Create a new empty PCW context');
+  ContextModePage.Add('Use an existing PCW context');
+  ContextModePage.Values[0] := True;
+
+  ContextPage := CreateInputDirPage(ContextModePage.ID, 'PCW Context location',
+    'Choose one PCW context root',
+    'For multiple projects, use separate folders such as PCW\Project-A and PCW\Project-B.');
+  ContextPage.Add('PCW context root:');
+  ContextPage.Values[0] := ExpandConstant('{userprofile}\PCW\My-PCW-Context');
 
   ClientPage := CreateInputOptionPage(ContextPage.ID, 'Client integration',
     'Choose optional client setup',
@@ -140,15 +152,21 @@ end;
 procedure CurPageChanged(CurPageID: Integer);
 var
   ClientSummary: String;
+  ContextMode: String;
 begin
   if CurPageID = ReviewPage.ID then begin
+    if ContextModePage.Values[0] then
+      ContextMode := 'Create new empty context'
+    else
+      ContextMode := 'Use existing context';
     ClientSummary := 'No automatic client changes';
     if ClientPage.Values[0] then ClientSummary := 'Cursor: automatic configuration';
     if ClientPage.Values[1] then ClientSummary := ClientSummary + #13#10 + 'Codex: guided setup only';
     if ClientPage.Values[2] then ClientSummary := ClientSummary + #13#10 + 'Claude Desktop: guided setup only';
     ReviewPage.RichEditViewer.Text :=
       'Install location:' + #13#10 + WizardDirValue + #13#10#13#10 +
-      'Existing context:' + #13#10 + ContextPage.Values[0] + #13#10#13#10 +
+      'Context mode:' + #13#10 + ContextMode + #13#10#13#10 +
+      'Context root:' + #13#10 + ContextPage.Values[0] + #13#10#13#10 +
       'Registration:' + #13#10 + RegistrationPage.Values[0] + #13#10#13#10 +
       ClientSummary + #13#10#13#10 +
       'PCW never deletes the selected context.';
@@ -159,9 +177,14 @@ function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
   if CurPageID = ContextPage.ID then begin
-    if (not DirExists(ContextPage.Values[0])) or
-       (not FileExists(AddBackslash(ContextPage.Values[0]) + 'pcw.yml')) then begin
-      MsgBox('Select an existing PCW context directory containing pcw.yml. New-context creation is not enabled in this prototype.',
+    if Trim(ContextPage.Values[0]) = '' then begin
+      MsgBox('Choose a PCW context root.', mbError, MB_OK);
+      Result := False;
+    end
+    else if ContextModePage.Values[1] and
+      ((not DirExists(ContextPage.Values[0])) or
+       (not FileExists(AddBackslash(ContextPage.Values[0]) + 'pcw.yml'))) then begin
+      MsgBox('Select an existing PCW context directory containing pcw.yml.',
         mbError, MB_OK);
       Result := False;
     end;
@@ -182,11 +205,20 @@ begin
   Summary := '';
   Arguments := '--runtime-root ' + Quote(ExpandConstant('{app}')) +
     ' --context-root ' + Quote(ContextPage.Values[0]);
+  if ContextModePage.Values[0] then begin
+    if not RunSetupHelper('init-context', Arguments, ResultText) then begin
+      VerificationPage.RichEditViewer.Text :=
+        'The new context could not be initialized safely.' + #13#10 + ResultText;
+      Exit;
+    end;
+    Summary := 'Context: initialized empty (zero workstreams)' + #13#10;
+  end;
   if not RunSetupHelper('validate-context', Arguments, ResultText) then begin
-    VerificationPage.RichEditViewer.Text := 'The selected context is not valid.' + #13#10 + ResultText;
+    VerificationPage.RichEditViewer.Text := Summary +
+      'The selected context is not valid.' + #13#10 + ResultText;
     Exit;
   end;
-  Summary := 'Context: valid' + #13#10;
+  Summary := Summary + 'Context: valid' + #13#10;
 
   if ClientPage.Values[0] then begin
     Arguments := CommonArguments() + ' --client cursor';

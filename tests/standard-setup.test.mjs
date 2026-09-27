@@ -75,6 +75,34 @@ test("validate-context accepts an existing valid synthetic PCW root", () =>
       ok: true, status: "valid", contextRoot
     });
   }));
+test("init-context delegates to the installed Core initializer", () =>
+  fixture(async ({ root, runtimeRoot, common }) => {
+    const contextRoot = join(root, "Contexts", "New Empty Context Ñ");
+    let received;
+    const result = await runStandardSetupCommand("init-context", {
+      ...common,
+      contextRoot
+    }, {
+      initializeContextRoot: async (receivedRuntime, receivedContext) => {
+        received = { runtimeRoot: receivedRuntime, contextRoot: receivedContext };
+        return {
+          status: "initialized",
+          contextRoot: receivedContext,
+          configPath: join(receivedContext, "pcw.yml"),
+          workstreamCount: 0,
+          createdDirectory: true
+        };
+      }
+    });
+
+    assert.deepEqual(received, { runtimeRoot, contextRoot });
+    assert.deepEqual(result, {
+      ok: true,
+      status: "initialized",
+      contextRoot,
+      workstreamCount: 0
+    });
+  }));
 
 test("validate-context rejects missing and invalid synthetic contexts", () =>
   fixture(async ({ root, common, contextRoot }) => {

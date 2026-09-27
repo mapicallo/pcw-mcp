@@ -36,6 +36,22 @@ node /opt/pcw-mcp/dist/server.js --context-root /home/user/contexts/sample-proje
 
 When both forms are supplied, the CLI value wins.
 
+## Context Bootstrap
+
+A context can be initialized before MCP starts through the non-MCP bootstrap
+entrypoint:
+
+```text
+node dist/bootstrap.js init-context --context-root <absolute-path>
+```
+
+Success is one JSON object on stdout. Failures are one JSON object on stderr
+with a nonzero exit status. The command delegates to the Core initialization
+service and creates only a deterministic minimal `pcw.yml`; it does not create
+sample content or an implicit workstream. This source capability is intended
+for a future canonical Core release and does not alter the already frozen
+`0.3.0-beta.1` artifact.
+
 ## Process Options
 
 ```text

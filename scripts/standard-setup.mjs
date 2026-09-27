@@ -1,6 +1,6 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { loadRuntimeConfig, runDoctor } from "./standard-runtime-doctor.mjs";
 import {
@@ -15,6 +15,7 @@ import {
 } from "./standard-integrations/index.mjs";
 
 export const STANDARD_SETUP_COMMANDS = Object.freeze([
+  "init-context",
   "validate-context",
   "detect-clients",
   "plan",
@@ -94,6 +95,20 @@ async function runtimeIdentity(runtimeRoot) {
   return metadata;
 }
 
+async function initializeRuntimeContext(runtimeRoot, contextRoot) {
+  const modulePath = join(
+    runtimeRoot,
+    "core",
+    "dist",
+    "initialization",
+    "context-initializer.js"
+  );
+  const { initializeContextRoot } = await import(pathToFileURL(modulePath).href);
+  return initializeContextRoot({
+    contextRoot,
+    protectedPaths: [runtimeRoot]
+  });
+}
 async function validateContext(runtimeRoot, contextRoot, configLoader = loadRuntimeConfig) {
   const info = await stat(contextRoot);
   if (!info.isDirectory()) throw new SetupError("invalid-context", "Context root is not a directory");
@@ -186,6 +201,18 @@ export async function runStandardSetupCommand(command, options = {}, dependencie
 
   const runtimeRoot = absolute(options, "runtimeRoot");
   const contextRoot = absolute(options, "contextRoot");
+  if (command === "init-context") {
+    await runtimeIdentity(runtimeRoot);
+    const result = await (
+      dependencies.initializeContextRoot ?? initializeRuntimeContext
+    )(runtimeRoot, contextRoot);
+    return {
+      ok: true,
+      status: result.status,
+      contextRoot: result.contextRoot,
+      workstreamCount: result.workstreamCount
+    };
+  }
   if (command === "validate-context") {
     await runtimeIdentity(runtimeRoot);
     return validateContext(runtimeRoot, contextRoot, dependencies.loadRuntimeConfig ?? loadRuntimeConfig);
