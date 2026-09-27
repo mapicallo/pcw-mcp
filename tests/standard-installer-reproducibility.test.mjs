@@ -20,6 +20,9 @@ async function fixture(run) {
     const make = (installer, installerBytes) => ({
       ok: true,
       installer,
+      prototype: true,
+      softwareVersion: "0.3.0-beta.2-dev.0",
+      coreTgzSha256: sha256("canonical Core"),
       inputFingerprint: sha256("same inputs"),
       installerSha256: sha256(installerBytes)
     });
@@ -38,6 +41,7 @@ test("reproducibility gate accepts identical pre-Inno fingerprints and EXE bytes
     const result = await verifyStandardInstallerReproducibility(reportA, reportB);
     assert.equal(result.deterministicBuildsMatch, true);
     assert.equal(result.installerSha256, sha256(bytes));
+    assert.equal(result.coreTgzSha256, sha256("canonical Core"));
     assert.equal(result.sizeBytes, bytes.length);
   }));
 

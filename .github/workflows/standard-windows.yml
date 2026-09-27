@@ -1,10 +1,21 @@
 name: standard-windows
 
 on:
-  push:
-    branches:
-      - v0.3-distribution
   pull_request:
+  workflow_call:
+    inputs:
+      core-artifact-name:
+        type: string
+        required: false
+        default: ""
+      expected-source-commit:
+        type: string
+        required: false
+        default: ""
+      release-invocation:
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -19,6 +30,9 @@ jobs:
       NPM_VERSION: 11.4.2
       INNO_VERSION: 6.4.3
       INNO_INSTALLER_SHA256: f3c42116542c4cc57263c5ba6c4feabfc49fe771f2f98a79d2f7628b8762723b
+      CORE_ARTIFACT_NAME: ${{ inputs.core-artifact-name }}
+      EXPECTED_SOURCE_COMMIT: ${{ inputs.expected-source-commit }}
+      RELEASE_INVOCATION: ${{ inputs.release-invocation }}
 
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +53,38 @@ jobs:
           tests/standard-installer.test.mjs
           tests/standard-setup.test.mjs
           tests/standard-installer-workflow.test.mjs
+          tests/release-transport.test.mjs
+      - name: Download transported canonical Core
+        if: inputs.core-artifact-name != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.core-artifact-name }}
+          path: ${{ runner.temp }}/pcw-core-transport
+      - name: Select and verify Core input
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = 'C:\pcw-standard-ci-${{ github.run_id }}-${{ github.run_attempt }}'
+          $version = node -p "require('./package.json').version"
+          if ($env:CORE_ARTIFACT_NAME) {
+            if (-not $env:EXPECTED_SOURCE_COMMIT -or -not $env:RELEASE_INVOCATION) {
+              throw 'Transported Core requires expected commit and release invocation'
+            }
+            $coreRoot = Join-Path $env:RUNNER_TEMP 'pcw-core-transport'
+            $coreTgz = Join-Path $coreRoot "pcw-mcp-$version.tgz"
+            $metadata = Join-Path $coreRoot 'core-transport.json'
+            node scripts/release-transport-cli.mjs verify-core --core-tgz $coreTgz --metadata $metadata --software-version $version --source-commit $env:EXPECTED_SOURCE_COMMIT --release-invocation $env:RELEASE_INVOCATION --file-name "pcw-mcp-$version.tgz"
+            if ($LASTEXITCODE -ne 0) { throw 'Transported Core verification failed' }
+          } else {
+            $pack = Join-Path $root 'engineering-pack'
+            New-Item -ItemType Directory -Force -Path $pack | Out-Null
+            $packResult = npm pack --json --pack-destination $pack | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'Engineering npm pack failed' }
+            $coreTgz = Join-Path $pack $packResult[0].filename
+          }
+          "PCW_STANDARD_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PCW_SOFTWARE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PCW_CORE_TGZ=$coreTgz" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Download and verify pinned build inputs
         shell: pwsh
         run: |
@@ -68,61 +114,65 @@ jobs:
           ) -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Inno Setup installation failed: $($process.ExitCode)" }
           if (-not (Test-Path (Join-Path $innoRoot 'ISCC.exe'))) { throw 'ISCC.exe was not installed' }
-      - name: Build Standard runtime and two engineering installers
+      - name: Build Standard runtime and two installers
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $root = 'C:\pcw-standard-ci-${{ github.run_id }}'
-          $pack = Join-Path $root 'pack'
-          $runtime = Join-Path $root 'runtime'
-          $installerA = Join-Path $root 'installer-a'
-          $installerB = Join-Path $root 'installer-b'
-          $reportA = Join-Path $root 'installer-a.json'
-          $reportB = Join-Path $root 'installer-b.json'
-          New-Item -ItemType Directory -Force -Path $pack | Out-Null
-          $packResult = npm pack --json --pack-destination $pack | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { throw 'npm pack failed' }
-          $coreTgz = Join-Path $pack $packResult[0].filename
-          npm run standard:runtime -- --core-tgz $coreTgz --node-runtime (Join-Path $env:RUNNER_TEMP "pcw-build-inputs\node-v$env:NODE_VERSION-win-x64.zip") --output $runtime --expected-node-version $env:NODE_VERSION
+          $runtime = Join-Path $env:PCW_STANDARD_ROOT 'runtime'
+          $installerA = Join-Path $env:PCW_STANDARD_ROOT 'installer-a'
+          $installerB = Join-Path $env:PCW_STANDARD_ROOT 'installer-b'
+          $reportA = Join-Path $env:PCW_STANDARD_ROOT 'installer-a.json'
+          $reportB = Join-Path $env:PCW_STANDARD_ROOT 'installer-b.json'
+          $reproducibility = Join-Path $env:PCW_STANDARD_ROOT 'reproducibility.json'
+          npm run standard:runtime -- --core-tgz $env:PCW_CORE_TGZ --node-runtime (Join-Path $env:RUNNER_TEMP "pcw-build-inputs\node-v$env:NODE_VERSION-win-x64.zip") --output $runtime --expected-node-version $env:NODE_VERSION
           if ($LASTEXITCODE -ne 0) { throw 'Standard runtime build failed' }
-          $buildA = node scripts/build-standard-windows-installer.mjs --runtime-dir $runtime --output-dir $installerA --iscc (Join-Path $env:RUNNER_TEMP 'Inno Setup 6.4.3\ISCC.exe') --mode engineering
+          $mode = if ($env:CORE_ARTIFACT_NAME -and $env:PCW_SOFTWARE_VERSION -notmatch '(?:^|[.-])dev(?:[.-]|$)') { 'release' } else { 'engineering' }
+          $buildA = node scripts/build-standard-windows-installer.mjs --runtime-dir $runtime --output-dir $installerA --iscc (Join-Path $env:RUNNER_TEMP 'Inno Setup 6.4.3\ISCC.exe') --mode $mode
           if ($LASTEXITCODE -ne 0) { throw 'Standard installer build A failed' }
           $buildA | Set-Content -Encoding utf8 $reportA
-          $buildB = node scripts/build-standard-windows-installer.mjs --runtime-dir $runtime --output-dir $installerB --iscc (Join-Path $env:RUNNER_TEMP 'Inno Setup 6.4.3\ISCC.exe') --mode engineering
+          $buildB = node scripts/build-standard-windows-installer.mjs --runtime-dir $runtime --output-dir $installerB --iscc (Join-Path $env:RUNNER_TEMP 'Inno Setup 6.4.3\ISCC.exe') --mode $mode
           if ($LASTEXITCODE -ne 0) { throw 'Standard installer build B failed' }
           $buildB | Set-Content -Encoding utf8 $reportB
-          node scripts/verify-standard-installer-reproducibility.mjs --build-a $reportA --build-b $reportB --output (Join-Path $root 'reproducibility.json')
+          node scripts/verify-standard-installer-reproducibility.mjs --build-a $reportA --build-b $reportB --output $reproducibility
           if ($LASTEXITCODE -ne 0) { throw 'Unsigned installer reproducibility gate failed' }
-      - name: Exercise silent install, Doctor and uninstall
+      - name: Exercise exact installer A lifecycle
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $root = 'C:\pcw-standard-ci-${{ github.run_id }}'
-          $installer = (Get-ChildItem (Join-Path $root 'installer-a') -Filter 'PCW-Setup-*-prototype.exe' -File -ErrorAction Stop).FullName
-          $installRoot = Join-Path $root 'installed'
-          $contextRoot = Join-Path $root 'contexts\Proyecto Ágil & QA (2026)\日本語'
-          $stateRoot = Join-Path $root 'state'
-          $homeRoot = Join-Path $root 'home'
+          $buildA = Get-Content -Raw (Join-Path $env:PCW_STANDARD_ROOT 'installer-a.json') | ConvertFrom-Json
+          $installer = $buildA.installer
+          $installRoot = Join-Path $env:PCW_STANDARD_ROOT 'installed'
+          $contextRoot = Join-Path $env:PCW_STANDARD_ROOT 'contexts\Synthetic Standard Context'
+          $stateRoot = Join-Path $env:PCW_STANDARD_ROOT 'state'
+          $homeRoot = Join-Path $env:PCW_STANDARD_ROOT 'home'
           $setup = Start-Process $installer -ArgumentList @(
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
-            "/DIR=`"$installRoot`"",
-            "/PCWContext=`"$contextRoot`"",
-            '/PCWContextMode=new',
-            "/PCWStateRoot=`"$stateRoot`"",
-            "/PCWHomeDirectory=`"$homeRoot`""
+            "/DIR=`"$installRoot`"", "/PCWContext=`"$contextRoot`"", '/PCWContextMode=new',
+            "/PCWStateRoot=`"$stateRoot`"", "/PCWHomeDirectory=`"$homeRoot`""
           ) -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "PCW install failed: $($setup.ExitCode)" }
           & (Join-Path $installRoot 'bin\pcw-doctor.cmd') --context-root $contextRoot
           if ($LASTEXITCODE -ne 0) { throw 'Installed Doctor failed' }
-          node scripts/verify-installed-standard-lifecycle.mjs --installer $installer --launcher (Join-Path $installRoot 'bin\pcw.cmd') --context-root $contextRoot --output (Join-Path $root 'lifecycle.json')
+          $lifecycle = Join-Path $env:PCW_STANDARD_ROOT 'lifecycle.json'
+          node scripts/verify-installed-standard-lifecycle.mjs --installer $installer --launcher (Join-Path $installRoot 'bin\pcw.cmd') --context-root $contextRoot --output $lifecycle
           if ($LASTEXITCODE -ne 0) { throw 'Installed MCP lifecycle failed' }
-          if (-not (Test-Path (Join-Path $contextRoot 'pcw.yml'))) { throw 'Synthetic context was not initialized' }
           $uninstaller = Join-Path $installRoot 'unins000.exe'
-          $uninstall = Start-Process $uninstaller -ArgumentList @(
-            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
-          ) -Wait -PassThru
+          $uninstall = Start-Process $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
           if ($uninstall.ExitCode -ne 0) { throw "PCW uninstall failed: $($uninstall.ExitCode)" }
           if (-not (Test-Path (Join-Path $contextRoot 'pcw.yml'))) { throw 'Uninstall removed the PCW context' }
           if (-not (Test-Path (Join-Path $contextRoot 'continuity\STANDARD-INSTALLER-CI.md'))) { throw 'Uninstall removed the created workstream' }
           if (Test-Path (Join-Path $installRoot 'bin\pcw.cmd')) { throw 'Uninstall left the PCW runtime installed' }
-
+          if ($env:CORE_ARTIFACT_NAME) {
+            $coreRoot = Join-Path $env:RUNNER_TEMP 'pcw-core-transport'
+            $transportOutput = Join-Path $env:PCW_STANDARD_ROOT 'standard-transport'
+            node scripts/release-transport-cli.mjs create-standard --core-tgz $env:PCW_CORE_TGZ --core-metadata (Join-Path $coreRoot 'core-transport.json') --build-a (Join-Path $env:PCW_STANDARD_ROOT 'installer-a.json') --build-b (Join-Path $env:PCW_STANDARD_ROOT 'installer-b.json') --reproducibility (Join-Path $env:PCW_STANDARD_ROOT 'reproducibility.json') --lifecycle $lifecycle --output-directory $transportOutput --software-version $env:PCW_SOFTWARE_VERSION --source-commit $env:EXPECTED_SOURCE_COMMIT --release-invocation $env:RELEASE_INVOCATION --context-preserved true
+            if ($LASTEXITCODE -ne 0) { throw 'Verified Standard transport creation failed' }
+          }
+      - name: Return exact verified installer A
+        if: inputs.core-artifact-name != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcw-standard-verified-${{ github.run_id }}-${{ github.run_attempt }}
+          path: C:\pcw-standard-ci-${{ github.run_id }}-${{ github.run_attempt }}\standard-transport
+          if-no-files-found: error
+          retention-days: 1

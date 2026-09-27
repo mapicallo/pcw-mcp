@@ -17,7 +17,7 @@ test("Windows installer CI pins and verifies Node and Inno inputs", async () => 
   assert.doesNotMatch(workflow, /winget|choco|node-version:\s*['"]?latest|download\/latest/iu);
 });
 
-test("Windows installer CI uses explicit builders and engineering isolation", async () => {
+test("Windows installer CI uses explicit builders and conditional transport", async () => {
   const workflow = await readFile(workflowPath, "utf8");
   assert.match(workflow, /npm run standard:runtime -- --core-tgz/u);
   assert.match(workflow, /--node-runtime/u);
@@ -25,14 +25,17 @@ test("Windows installer CI uses explicit builders and engineering isolation", as
   assert.match(workflow, /verify-standard-installer-reproducibility\.mjs/u);
   assert.match(workflow, /installer-a/u);
   assert.match(workflow, /installer-b/u);
-  assert.match(workflow, /--mode engineering/u);
-  assert.doesNotMatch(workflow, /actions\/upload-artifact/iu);
+  assert.match(workflow, /release-transport-cli\.mjs verify-core/u);
+  assert.match(workflow, /\$mode = if \(\$env:CORE_ARTIFACT_NAME/u);
+  assert.match(workflow, /release-transport-cli\.mjs create-standard/u);
+  assert.match(workflow, /retention-days: 1/u);
+  assert.match(workflow, /if: inputs\.core-artifact-name != ''[\s\S]*actions\/upload-artifact/iu);
 });
 
 test("Windows installer CI performs a disposable lifecycle without client mutation", async () => {
   const workflow = await readFile(workflowPath, "utf8");
-  assert.match(workflow, /\$root = 'C:\\pcw-standard-ci-\$\{\{ github\.run_id \}\}'/u);
-  assert.match(workflow, /Proyecto Ágil & QA \(2026\)\\日本語/u);
+  assert.match(workflow, /PCW_STANDARD_ROOT/u);
+  assert.match(workflow, /Synthetic Standard Context/u);
   assert.match(workflow, /pcw-doctor\.cmd/u);
   assert.match(workflow, /verify-installed-standard-lifecycle\.mjs/u);
   assert.match(workflow, /STANDARD-INSTALLER-CI\.md/u);
@@ -42,3 +45,12 @@ test("Windows installer CI performs a disposable lifecycle without client mutati
   assert.doesNotMatch(workflow, /--client cursor|--client codex|--client claude-desktop/u);
 });
 
+test("release-mode Windows path consumes transported Core and contains no source repack", async () => {
+  const workflow = await readFile(workflowPath, "utf8");
+  const transportedBranch = workflow.slice(
+    workflow.indexOf("if ($env:CORE_ARTIFACT_NAME)"),
+    workflow.indexOf("} else {")
+  );
+  assert.match(transportedBranch, /verify-core/u);
+  assert.doesNotMatch(transportedBranch, /npm pack|packCoreTarball/iu);
+});

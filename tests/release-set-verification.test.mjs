@@ -178,6 +178,8 @@ test("verifier accepts a gated Standard installer and includes it in checksums/r
         `${checksumEntries.map(([name, bytes]) => `${sha256(bytes)}  ${name}`).join("\n")}\n`);
       const evidence = createStandardInstallerVerification({
         softwareVersion: version,
+        sourceCommit: manifest.source.gitCommit,
+        releaseInvocation: "test-release-set-1",
         fileName: installerName,
         coreTgzSha256: sha256(core),
         preInnoInputSha256: sha256("stable inputs"),

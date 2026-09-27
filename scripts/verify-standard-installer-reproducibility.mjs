@@ -7,6 +7,8 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+const SHA256 = /^[a-f0-9]{64}$/u;
+
 function parseArgs(args) {
   const options = {};
   const names = new Map([
@@ -29,8 +31,10 @@ function parseArgs(args) {
 async function readBuildReport(path) {
   const report = JSON.parse((await readFile(resolve(path), "utf8")).replace(/^\uFEFF/u, ""));
   if (report.ok !== true || typeof report.installer !== "string" ||
-      !/^[a-f0-9]{64}$/u.test(report.inputFingerprint ?? "") ||
-      !/^[a-f0-9]{64}$/u.test(report.installerSha256 ?? "")) {
+      typeof report.softwareVersion !== "string" || report.softwareVersion.length === 0 ||
+      !SHA256.test(report.coreTgzSha256 ?? "") ||
+      !SHA256.test(report.inputFingerprint ?? "") ||
+      !SHA256.test(report.installerSha256 ?? "")) {
     throw new Error("Invalid Standard installer build report");
   }
   const bytes = await readFile(resolve(report.installer));
@@ -48,6 +52,10 @@ export async function verifyStandardInstallerReproducibility(buildAPath, buildBP
   if (buildA.report.inputFingerprint !== buildB.report.inputFingerprint) {
     throw new Error("Pre-Inno input fingerprints differ");
   }
+  if (buildA.report.softwareVersion !== buildB.report.softwareVersion ||
+      buildA.report.coreTgzSha256 !== buildB.report.coreTgzSha256) {
+    throw new Error("Installer builds do not use the same canonical Core identity");
+  }
   if (!buildA.bytes.equals(buildB.bytes)) {
     throw new Error("Unsigned Standard installer builds are not byte-identical");
   }
@@ -56,6 +64,8 @@ export async function verifyStandardInstallerReproducibility(buildAPath, buildBP
     deterministicBuildsMatch: true,
     preInnoInputSha256: buildA.report.inputFingerprint,
     installerSha256: buildA.report.installerSha256,
+    coreTgzSha256: buildA.report.coreTgzSha256,
+    softwareVersion: buildA.report.softwareVersion,
     sizeBytes: buildA.bytes.length
   };
 }

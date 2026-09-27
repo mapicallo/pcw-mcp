@@ -835,9 +835,30 @@ the runtime Core SHA equals the canonical TGZ; and target, Node/npm/Inno pins,
 real client configuration are attested. The exact tested EXE is finalized,
 not rebuilt. Development CI retains no EXE artifact.
 
-A future release workflow should transfer the once-built canonical Core TGZ to
-the Windows job, verify its SHA, return the verified installer and evidence to
-finalization with restricted retention, and publish only after authorization.
+BLOCK 30E.1 implements the validation topology. `release-build` produces one
+canonical Core TGZ on Ubuntu and transports only it plus `core-transport.json`
+to the reusable Windows workflow. Windows verifies the extracted TGZ against
+producer SHA, software version, source commit, expected filename, and release
+invocation before runtime assembly. The transported/release path contains no
+`npm pack`; the independent PR engineering path may still pack a disposable
+Core and does not upload it.
+
+Windows returns exact installer A after A/B comparison and lifecycle testing,
+plus `standard-verification.json` and `standard-transport.json`. Runtime Core
+SHA, build A/B Core SHA, verification Core SHA, and producer Core SHA must all
+match. The installer SHA must match A, B, lifecycle, return metadata, downloaded
+bytes, and finalization input. Commit and invocation bind both transports to the
+same workflow execution. Finalization verifies these values before building the
+development handoff from the same TGZ and never recompiles the EXE.
+
+Core and installer transport artifacts are retained for one day and are named
+`pcw-core-transport-<run-id>-<attempt>` and
+`pcw-standard-verified-<run-id>-<attempt>`. They contain
+no expanded runtime, Node archive, Inno installer, context, or source tree.
+Because the repository is public, users with Actions access may download them;
+they are not secret or equivalent to AI4Context's future private store. An
+authorized private release must explicitly approve brief CI transit or use a
+private direct-transfer mechanism. No GitHub Release is created by this flow.
 
 Signing is separate: deterministic verified unsigned EXE, then Authenticode,
 then a new final SHA-256 and post-signature verification. No signing, upload,

@@ -228,6 +228,8 @@ async function main() {
       installer: result.installer,
       compilerVersion: result.compilerVersion,
       prototype: options.mode === "engineering",
+      softwareVersion: result.metadata.core.version,
+      coreTgzSha256: result.metadata.core.sha256,
       inputFingerprint: result.inputFingerprint,
       installerSha256: result.installerSha256
     })}\n`);

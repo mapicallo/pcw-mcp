@@ -20,11 +20,14 @@ export const PINNED_INNO_INSTALLER_SHA256 =
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 
 export const standardInstallerVerificationSchema = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   artifactId: z.literal(STANDARD_WINDOWS_ARTIFACT_ID),
   type: z.literal(STANDARD_WINDOWS_ARTIFACT_TYPE),
   softwareVersion: z.string().min(1),
+  sourceCommit: z.string().regex(/^[a-f0-9]{40}$/u),
+  releaseInvocation: z.string().regex(/^[A-Za-z0-9._-]{1,128}$/u),
   fileName: z.string().min(1),
+  prototype: z.boolean(),
   target: z.object({ os: z.literal("windows"), arch: z.literal("x64") }).strict(),
   runtime: z.object({ node: z.literal(PINNED_STANDARD_NODE_VERSION) }).strict(),
   coreTgzSha256: sha256Schema,
@@ -55,6 +58,8 @@ export async function validateStandardInstallerArtifact({
   installerPath,
   verification,
   softwareVersion,
+  sourceCommit,
+  releaseInvocation,
   coreTgzSha256,
   releaseGrade = false
 }) {
@@ -64,6 +69,9 @@ export async function validateStandardInstallerArtifact({
   }
   const expectedName = officialInstallerName(softwareVersion);
   if (evidence.softwareVersion !== softwareVersion ||
+      evidence.sourceCommit !== sourceCommit ||
+      evidence.releaseInvocation !== releaseInvocation ||
+      evidence.prototype ||
       evidence.fileName !== expectedName ||
       basename(installerPath) !== expectedName) {
     throw new Error("Standard installer identity does not match the release software version");
@@ -91,7 +99,10 @@ export async function validateStandardInstallerArtifact({
 
 export function createStandardInstallerVerification({
   softwareVersion,
+  sourceCommit,
+  releaseInvocation,
   fileName,
+  prototype = false,
   coreTgzSha256,
   preInnoInputSha256,
   buildASha256,
@@ -102,11 +113,14 @@ export function createStandardInstallerVerification({
     throw new Error("Unsigned Standard installer builds are not byte-identical");
   }
   return standardInstallerVerificationSchema.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
     artifactId: STANDARD_WINDOWS_ARTIFACT_ID,
     type: STANDARD_WINDOWS_ARTIFACT_TYPE,
     softwareVersion,
+    sourceCommit,
+    releaseInvocation,
     fileName,
+    prototype,
     target: { os: "windows", arch: "x64" },
     runtime: { node: PINNED_STANDARD_NODE_VERSION },
     coreTgzSha256,

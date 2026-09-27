@@ -197,6 +197,23 @@ and signing keys outside the repository.
 | npm registry | Developer delivery only after an explicit publication/license decision; not a requirement for Standard or MCPB |
 | GitHub Releases / CI | CI checks, provenance evidence, optional approved release publication; not a substitute for user-data storage or a signed installer |
 
+### CI transport is not publication
+
+The current release validation has one canonical Core producer. Its exact TGZ
+and path-free metadata move through a one-day GitHub Actions artifact to the
+reusable Windows job. Windows returns the exact lifecycle-tested unsigned EXE
+and path-free evidence through a second one-day artifact. Finalization verifies
+version, commit, release invocation, filenames, sizes, and SHA-256 values before
+using either payload; it never extracts Core from the handoff ZIP and never
+rebuilds the verified EXE. Release-grade Core source repacking is forbidden.
+
+These transport artifacts are visible to people able to access Actions for the
+public repository. They are not secrets, product links, GitHub Releases, or the
+private AI4Context distribution store. Minimal retention limits exposure time
+but does not provide private delivery. Future authorized private publication
+must either accept this brief public-repository transit explicitly or transfer
+final bytes directly to access-controlled storage.
+
 ## Deferred proofs and risks
 
 - Select Windows installer technology and per-user versus machine-wide scope

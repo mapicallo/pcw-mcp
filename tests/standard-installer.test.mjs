@@ -199,13 +199,13 @@ test("installer build refuses an unpinned Inno compiler", () =>
     }), /6\.4\.3 is required/);
   }));
 
-test("installer enters release tooling only through explicit verification and is not uploaded by dev CI", async () => {
+test("installer enters release tooling only through explicit verification and dev-only CI does not upload", async () => {
   const files = await Promise.all([
     readFile(join(repositoryRoot, "scripts", "build-release.mjs"), "utf8"),
     readFile(join(repositoryRoot, ".github", "workflows", "standard-windows.yml"), "utf8")
   ]);
   assert.match(files[0], /standardWindowsVerification/u);
   assert.match(files[0], /validateStandardInstallerArtifact/u);
-  assert.doesNotMatch(files[1], /actions\/upload-artifact/iu);
-  assert.doesNotMatch(files[1], /PCW-Setup-.*\.exe.*upload/iu);
+  assert.match(files[1], /if: inputs\.core-artifact-name != ''[\s\S]*actions\/upload-artifact/iu);
+  assert.match(files[1], /retention-days: 1/u);
 });

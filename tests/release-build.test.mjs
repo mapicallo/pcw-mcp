@@ -46,7 +46,31 @@ async function fixture(run) {
       await writeFile(join(output, zipName), zip);
       await writeFile(join(output, `${zipName}.sha256`), `${hash(zip)}  ${zipName}\n`);
     };
-    return await run({ root, packCore, packagePrivateBeta });
+    const transferredCore = async () => {
+      const directory = join(root, "artifacts", "transported-core");
+      await mkdir(directory, { recursive: true });
+      const coreTgz = join(directory, tarballName);
+      await writeFile(coreTgz, "Synthetic Core bytes\n");
+      const metadata = {
+        schemaVersion: 1,
+        transportType: "pcw-core",
+        softwareVersion: version,
+        sourceCommit: git(root, "rev-parse", "HEAD"),
+        releaseInvocation: "test-release-build-1",
+        fileName: tarballName,
+        sizeBytes: (await readFile(coreTgz)).length,
+        sha256: hash(await readFile(coreTgz))
+      };
+      const coreTransportMetadata = join(directory, "core-transport.json");
+      await writeFile(coreTransportMetadata, JSON.stringify(metadata));
+      return {
+        coreTgz,
+        coreTransportMetadata,
+        expectedSourceCommit: metadata.sourceCommit,
+        releaseInvocation: metadata.releaseInvocation
+      };
+    };
+    return await run({ root, packCore, packagePrivateBeta, transferredCore });
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -170,7 +194,8 @@ test("handoff with a different embedded Core is rejected even with a valid ZIP c
   assert.deepEqual(await snapshot(completed.directory), hashes);
 }));
 
-test("dirty development provenance is explicit and release grade is refused", () => fixture(async ({ root, packCore, packagePrivateBeta }) => {
+test("dirty development provenance is explicit and release grade is refused", () => fixture(async ({ root, packCore, packagePrivateBeta, transferredCore }) => {
+  const transport = await transferredCore();
   await writeFile(join(root, "pending.txt"), "uncommitted source");
   const options = { repositoryRoot: root, channel: "private-beta", packCore, packagePrivateBeta };
   const development = await buildRelease(options);
@@ -178,13 +203,14 @@ test("dirty development provenance is explicit and release grade is refused", ()
   assert.equal(development.manifest.source.gitTag, null);
   const completedHashes = await snapshot(development.directory);
   await assert.rejects(buildRelease({ ...options, releaseGrade: true,
-    releasedAt: "2026-09-19T12:00:00.000Z" }), /clean tree and matching annotated version tag/);
+    releasedAt: "2026-09-19T12:00:00.000Z", ...transport }), /clean tree and matching annotated version tag/);
   assert.deepEqual(await snapshot(development.directory), completedHashes);
 }));
 
-test("release-grade build requires annotated version tag at clean HEAD", () => fixture(async ({ root, packCore, packagePrivateBeta }) => {
+test("release-grade build requires annotated version tag at clean HEAD", () => fixture(async ({ root, packCore, packagePrivateBeta, transferredCore }) => {
+  const transport = await transferredCore();
   const options = { repositoryRoot: root, channel: "private-beta", packCore, packagePrivateBeta,
-    releaseGrade: true, releasedAt: "2026-09-19T12:00:00.000Z" };
+    releaseGrade: true, releasedAt: "2026-09-19T12:00:00.000Z", ...transport };
   await assert.rejects(buildRelease(options), /clean tree and matching annotated version tag/);
   git(root, "-c", "user.name=PCW Test", "-c", "user.email=test@example.invalid",
     "tag", "-a", `v${version}`, "-m", "Synthetic release");
@@ -195,7 +221,8 @@ test("release-grade build requires annotated version tag at clean HEAD", () => f
 }));
 
 test("release-grade set includes one verified Standard installer and hashes it", () =>
-  fixture(async ({ root, packCore, packagePrivateBeta }) => {
+  fixture(async ({ root, packCore, packagePrivateBeta, transferredCore }) => {
+    const transport = await transferredCore();
     const input = join(root, "artifacts", "standard-input");
     await mkdir(input, { recursive: true });
     const installerName = `PCW-Setup-${version}.exe`;
@@ -207,6 +234,8 @@ test("release-grade set includes one verified Standard installer and hashes it",
     await writeFile(installerPath, installerBytes);
     const verification = createStandardInstallerVerification({
       softwareVersion: version,
+      sourceCommit: transport.expectedSourceCommit,
+      releaseInvocation: transport.releaseInvocation,
       fileName: installerName,
       coreTgzSha256: coreSha256,
       preInnoInputSha256: hash("stable inputs"),
@@ -231,6 +260,7 @@ test("release-grade set includes one verified Standard installer and hashes it",
       releasedAt: "2026-09-19T12:00:00.000Z",
       standardWindowsInstaller: installerPath,
       standardWindowsVerification: verificationPath,
+      ...transport,
       packCore,
       packagePrivateBeta
     });

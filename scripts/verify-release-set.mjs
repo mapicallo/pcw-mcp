@@ -107,10 +107,13 @@ export async function verifyReleaseSet(directory, {
     if (!installerVerification) {
       throw new Error("Standard installer release set requires verification evidence");
     }
+    const verification = JSON.parse(await readFile(resolve(installerVerification), "utf8"));
     await validateStandardInstallerArtifact({
       installerPath: resolve(root, installerArtifact.fileName),
-      verification: JSON.parse(await readFile(resolve(installerVerification), "utf8")),
+      verification,
       softwareVersion: version,
+      sourceCommit: manifest.source.gitCommit,
+      releaseInvocation: verification.releaseInvocation,
       coreTgzSha256: hashes[coreName],
       releaseGrade: manifest.source.gitTag !== null
     });

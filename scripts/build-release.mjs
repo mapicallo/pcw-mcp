@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,6 +14,7 @@ import {
   validateOutputLocation
 } from "./generate-release-manifest.mjs";
 import { packCoreTarball } from "./pack-core.mjs";
+import { verifyCoreTransport } from "./release-transport.mjs";
 import { validateStandardInstallerArtifact } from "./standard-installer-release.mjs";
 
 const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -31,12 +32,20 @@ export function parseReleaseBuildArgs(args) {
       options.releaseGrade = true;
     } else if ((arg === "--channel" || arg === "--released-at" ||
                 arg === "--standard-windows-installer" ||
-                arg === "--standard-windows-verification") &&
+                arg === "--standard-windows-verification" ||
+                arg === "--core-tgz" || arg === "--core-transport-metadata" ||
+                arg === "--expected-source-commit" || arg === "--release-invocation") &&
                args[index + 1] && !args[index + 1].startsWith("--")) {
-      const key = arg === "--channel" ? "channel" :
-        arg === "--released-at" ? "releasedAt" :
-        arg === "--standard-windows-installer" ? "standardWindowsInstaller" :
-        "standardWindowsVerification";
+      const key = new Map([
+        ["--channel", "channel"],
+        ["--released-at", "releasedAt"],
+        ["--standard-windows-installer", "standardWindowsInstaller"],
+        ["--standard-windows-verification", "standardWindowsVerification"],
+        ["--core-tgz", "coreTgz"],
+        ["--core-transport-metadata", "coreTransportMetadata"],
+        ["--expected-source-commit", "expectedSourceCommit"],
+        ["--release-invocation", "releaseInvocation"]
+      ]).get(arg);
       if (options[key] !== undefined) throw new Error(`Repeated option: ${arg}`);
       options[key] = args[++index];
     } else {
@@ -57,6 +66,14 @@ export function parseReleaseBuildArgs(args) {
   }
   if (options.standardWindowsInstaller && !options.releaseGrade) {
     throw new Error("Official Standard Windows artifact requires release-grade build mode");
+  }
+  const transferredCore = [options.coreTgz, options.coreTransportMetadata,
+    options.expectedSourceCommit, options.releaseInvocation];
+  if (transferredCore.some(Boolean) && !transferredCore.every(Boolean)) {
+    throw new Error("Transferred Core requires TGZ, metadata, source commit, and release invocation");
+  }
+  if (options.releaseGrade && !transferredCore.every(Boolean)) {
+    throw new Error("Release-grade build requires the transferred canonical Core; source repack is forbidden");
   }
   return options;
 }
@@ -136,6 +153,10 @@ export async function buildRelease({
   releasedAt,
   standardWindowsInstaller,
   standardWindowsVerification,
+  coreTgz,
+  coreTransportMetadata,
+  expectedSourceCommit,
+  releaseInvocation,
   packCore = packCoreTarball,
   packagePrivateBeta = runPrivateBetaPackage
 }) {
@@ -143,7 +164,13 @@ export async function buildRelease({
     ...(releasedAt === undefined ? [] : ["--released-at", releasedAt]),
     ...(standardWindowsInstaller === undefined ? [] :
       ["--standard-windows-installer", standardWindowsInstaller,
-       "--standard-windows-verification", standardWindowsVerification])]);
+       "--standard-windows-verification", standardWindowsVerification]),
+    ...(coreTgz === undefined ? [] : [
+      "--core-tgz", coreTgz,
+      "--core-transport-metadata", coreTransportMetadata,
+      "--expected-source-commit", expectedSourceCommit,
+      "--release-invocation", releaseInvocation
+    ])]);
   const packageJson = JSON.parse(await readFile(join(repositoryRoot, "package.json"), "utf8"));
   const version = releaseManifestSchema.shape.softwareVersion.parse(packageJson.version);
   const versionDirectory = join(repositoryRoot, "artifacts", "releases", version);
@@ -154,11 +181,30 @@ export async function buildRelease({
   try {
     const zipName = `PCW-MCP-${version}-PRIVATE-BETA.zip`;
     const tarballName = `pcw-mcp-${version}.tgz`;
-    const corePath = await packCore(repositoryRoot, stage, version);
-    if (resolve(corePath) !== resolve(stage, tarballName)) {
-      throw new Error("Core packager returned an unexpected path");
+    let corePath;
+    let coreBytes;
+    if (coreTgz) {
+      const transported = await verifyCoreTransport({
+        coreTgz: resolve(coreTgz),
+        metadataPath: resolve(coreTransportMetadata),
+        expectedSoftwareVersion: version,
+        expectedSourceCommit,
+        expectedReleaseInvocation: releaseInvocation,
+        expectedFileName: tarballName
+      });
+      corePath = join(stage, tarballName);
+      await copyFile(transported.path, corePath);
+      coreBytes = await readFile(corePath);
+      if (!coreBytes.equals(transported.bytes)) {
+        throw new Error("Canonical Core changed while entering release finalization");
+      }
+    } else {
+      corePath = await packCore(repositoryRoot, stage, version);
+      if (resolve(corePath) !== resolve(stage, tarballName)) {
+        throw new Error("Core packager returned an unexpected path");
+      }
+      coreBytes = await readFile(corePath);
     }
-    const coreBytes = await readFile(corePath);
     await packagePrivateBeta(repositoryRoot, corePath);
     const legacyZip = join(repositoryRoot, "artifacts", "private-beta", version, zipName);
     const zipBytes = await readFile(legacyZip);
@@ -187,6 +233,8 @@ export async function buildRelease({
         installerPath: resolve(standardWindowsInstaller),
         verification,
         softwareVersion: version,
+        sourceCommit: expectedSourceCommit,
+        releaseInvocation,
         coreTgzSha256: sha256(coreBytes),
         releaseGrade
       });
@@ -199,6 +247,9 @@ export async function buildRelease({
     const manifest = await createReleaseManifest({
       repositoryRoot, channel, descriptorPath, releaseGrade, releasedAt
     });
+    if (coreTgz && manifest.source.gitCommit !== expectedSourceCommit) {
+      throw new Error("Transported Core source commit does not match release finalization HEAD");
+    }
     await rm(descriptorPath);
     await writeFile(join(stage, "release-manifest.json"), serializeReleaseManifest(manifest));
     const checksumInputs = await Promise.all(

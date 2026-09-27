@@ -15,6 +15,8 @@ import {
 
 const version = "0.3.0-beta.2";
 const fileName = `PCW-Setup-${version}.exe`;
+const sourceCommit = "a".repeat(40);
+const releaseInvocation = "test-release-1";
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 async function fixture(run) {
@@ -27,6 +29,8 @@ async function fixture(run) {
     const coreTgzSha256 = sha256("synthetic canonical Core");
     const verification = createStandardInstallerVerification({
       softwareVersion: version,
+      sourceCommit,
+      releaseInvocation,
       fileName,
       coreTgzSha256,
       preInnoInputSha256: sha256("stable pre-Inno inputs"),
@@ -53,6 +57,8 @@ test("Standard artifact descriptor is explicit windows/x64 with bundled Node met
       installerPath: installer,
       verification,
       softwareVersion: version,
+      sourceCommit,
+      releaseInvocation,
       coreTgzSha256,
       releaseGrade: true
     });
@@ -73,6 +79,8 @@ test("Standard artifact gate rejects a different Core or different lifecycle byt
       installerPath: installer,
       verification,
       softwareVersion: version,
+      sourceCommit,
+      releaseInvocation,
       coreTgzSha256: "0".repeat(64),
       releaseGrade: true
     }), /Core SHA/);
@@ -82,6 +90,8 @@ test("Standard artifact gate rejects a different Core or different lifecycle byt
       installerPath: installer,
       verification: changed,
       softwareVersion: version,
+      sourceCommit,
+      releaseInvocation,
       coreTgzSha256,
       releaseGrade: true
     }), /differ/);
@@ -99,6 +109,8 @@ test("release-grade Standard gate rejects development versions even with matchin
         installerPath: developmentInstaller,
         verification: development,
         softwareVersion: development.softwareVersion,
+        sourceCommit,
+        releaseInvocation,
         coreTgzSha256,
         releaseGrade: true
       }), /refuses development/);
@@ -110,6 +122,8 @@ test("release-grade Standard gate rejects development versions even with matchin
 test("verification creation refuses unequal unsigned installer builds", () => {
   assert.throws(() => createStandardInstallerVerification({
     softwareVersion: version,
+    sourceCommit,
+    releaseInvocation,
     fileName,
     coreTgzSha256: "a".repeat(64),
     preInnoInputSha256: "b".repeat(64),

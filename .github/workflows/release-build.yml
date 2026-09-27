@@ -5,6 +5,17 @@ on:
     branches:
       - v0.3-distribution
   workflow_dispatch:
+    inputs:
+      release-grade:
+        description: Finalize from an approved clean annotated version tag
+        type: boolean
+        required: true
+        default: false
+      released-at:
+        description: Explicit canonical UTC release date; required for release grade
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -33,8 +44,60 @@ jobs:
         if: matrix.node-version == '22.x'
         run: npm run test:package-install
 
-  package:
+  core:
     needs: validate
+    runs-on: ubuntu-24.04
+    outputs:
+      software-version: ${{ steps.meta.outputs.version }}
+      artifact-name: ${{ steps.meta.outputs.artifact-name }}
+      release-invocation: ${{ steps.meta.outputs.release-invocation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.3.0'
+      - name: Assert canonical packaging toolchain
+        run: |
+          test "$(node --version)" = "v24.3.0"
+          test "$(npm --version)" = "11.4.2"
+      - run: npm ci
+      - run: npm run build
+      - name: Define canonical Core transport
+        id: meta
+        run: |
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "artifact-name=pcw-core-transport-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+          echo "release-invocation=github-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+      - name: Produce canonical Core once
+        run: >-
+          node scripts/release-transport-cli.mjs create-core
+          --repository-root "$GITHUB_WORKSPACE"
+          --output-directory artifacts/core-transport
+          --source-commit "${{ github.sha }}"
+          --release-invocation "github-${{ github.run_id }}-${{ github.run_attempt }}"
+      - name: Transport canonical Core bytes to Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcw-core-transport-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/core-transport
+          if-no-files-found: error
+          retention-days: 1
+
+  standard-windows:
+    needs: core
+    uses: ./.github/workflows/standard-windows.yml
+    permissions:
+      contents: read
+    with:
+      core-artifact-name: ${{ needs.core.outputs.artifact-name }}
+      expected-source-commit: ${{ github.sha }}
+      release-invocation: ${{ needs.core.outputs.release-invocation }}
+
+  finalize:
+    needs: [core, standard-windows]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -49,30 +112,81 @@ jobs:
           test "$(node --version)" = "v24.3.0"
           test "$(npm --version)" = "11.4.2"
       - run: npm ci
-      - name: Read package version
-        id: meta
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-      - name: Build release set A
-        run: npm run release:build -- --channel private-beta
+      - name: Download canonical Core transport
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.core.outputs.artifact-name }}
+          path: artifacts/downloaded-core
+      - name: Download exact verified Standard installer
+        uses: actions/download-artifact@v4
+        with:
+          name: pcw-standard-verified-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/downloaded-standard
+      - name: Verify cross-job Core and Standard provenance
+        run: >-
+          node scripts/release-transport-cli.mjs verify-standard
+          --directory artifacts/downloaded-standard
+          --core-tgz artifacts/downloaded-core/pcw-mcp-${{ needs.core.outputs.software-version }}.tgz
+          --core-metadata artifacts/downloaded-core/core-transport.json
+          --software-version "${{ needs.core.outputs.software-version }}"
+          --source-commit "${{ github.sha }}"
+          --release-invocation "${{ needs.core.outputs.release-invocation }}"
+          --release-grade "${{ inputs.release-grade || false }}"
+      - name: Build release set A from transported Core
+        if: inputs.release-grade != true
+        run: >-
+          npm run release:build -- --channel private-beta
+          --core-tgz artifacts/downloaded-core/pcw-mcp-${{ needs.core.outputs.software-version }}.tgz
+          --core-transport-metadata artifacts/downloaded-core/core-transport.json
+          --expected-source-commit "${{ github.sha }}"
+          --release-invocation "${{ needs.core.outputs.release-invocation }}"
+      - name: Build release-grade set A from exact transported artifacts
+        if: inputs.release-grade == true
+        run: >-
+          npm run release:build -- --channel private-beta --release
+          --released-at "${{ inputs.released-at }}"
+          --core-tgz artifacts/downloaded-core/pcw-mcp-${{ needs.core.outputs.software-version }}.tgz
+          --core-transport-metadata artifacts/downloaded-core/core-transport.json
+          --expected-source-commit "${{ github.sha }}"
+          --release-invocation "${{ needs.core.outputs.release-invocation }}"
+          --standard-windows-installer artifacts/downloaded-standard/PCW-Setup-${{ needs.core.outputs.software-version }}.exe
+          --standard-windows-verification artifacts/downloaded-standard/standard-verification.json
       - name: Verify and snapshot A
         run: >-
           node scripts/verify-release-set.mjs
-          --directory artifacts/releases/${{ steps.meta.outputs.version }}/private-beta
+          --directory artifacts/releases/${{ needs.core.outputs.software-version }}/private-beta
           --snapshot artifacts/release-set-A.json
           --require-clean-source
-      - name: Build release set B
-        run: npm run release:build -- --channel private-beta
+      - name: Build release set B from the same transported Core
+        if: inputs.release-grade != true
+        run: >-
+          npm run release:build -- --channel private-beta
+          --core-tgz artifacts/downloaded-core/pcw-mcp-${{ needs.core.outputs.software-version }}.tgz
+          --core-transport-metadata artifacts/downloaded-core/core-transport.json
+          --expected-source-commit "${{ github.sha }}"
+          --release-invocation "${{ needs.core.outputs.release-invocation }}"
+      - name: Build release-grade set B from the same exact transported artifacts
+        if: inputs.release-grade == true
+        run: >-
+          npm run release:build -- --channel private-beta --release
+          --released-at "${{ inputs.released-at }}"
+          --core-tgz artifacts/downloaded-core/pcw-mcp-${{ needs.core.outputs.software-version }}.tgz
+          --core-transport-metadata artifacts/downloaded-core/core-transport.json
+          --expected-source-commit "${{ github.sha }}"
+          --release-invocation "${{ needs.core.outputs.release-invocation }}"
+          --standard-windows-installer artifacts/downloaded-standard/PCW-Setup-${{ needs.core.outputs.software-version }}.exe
+          --standard-windows-verification artifacts/downloaded-standard/standard-verification.json
       - name: Verify B and compare every file with A
         run: >-
           node scripts/verify-release-set.mjs
-          --directory artifacts/releases/${{ steps.meta.outputs.version }}/private-beta
+          --directory artifacts/releases/${{ needs.core.outputs.software-version }}/private-beta
           --compare artifacts/release-set-A.json
           --metadata-directory artifacts/release-ci-verification
           --require-clean-source
       - name: Store verification metadata only
         uses: actions/upload-artifact@v4
         with:
-          name: pcw-${{ steps.meta.outputs.version }}-private-beta-verification-${{ github.sha }}-${{ github.run_id }}
+          name: pcw-${{ needs.core.outputs.software-version }}-private-beta-verification-${{ github.sha }}-${{ github.run_id }}
           path: |
             artifacts/release-ci-verification/release-manifest.json
             artifacts/release-ci-verification/SHA256SUMS.txt
