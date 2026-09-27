@@ -224,3 +224,7 @@ and signing keys outside the repository.
 The next work should be a bounded packaging feasibility proof, not a second
 PCW implementation. This record creates no installer, MCPB, publication,
 update mechanism, or change to the frozen beta.4 runtime contract.
+
+For the Standard Windows specialization (runtime layout, Inno Setup choice,
+launcher, doctor, and spike evidence), see
+[standard-windows-distribution.md](standard-windows-distribution.md) (BLOCK 30A).
