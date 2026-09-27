@@ -95,3 +95,15 @@ Vercel Blob IDs, GitHub/S3/CDN locations, signed URLs, and other provider
 state belong to a future publication mapping. SHA-256 must be checked
 against a separately trusted release record; a hash by itself is not
 publisher authentication.
+
+## Standard Windows artifact
+
+Manifest schema v1 already represents the Standard Windows artifact without a
+schema change. Its descriptor uses artifactId standard-windows-installer, type
+windows-installer, file PCW-Setup-<version>.exe, target windows/x64, and
+runtime Node 22.23.3.
+
+Release finalization accepts it only after separate evidence binds the EXE to
+the canonical Core SHA, pinned Node/npm/Inno inputs, byte-identical unsigned
+A/B builds, and lifecycle verification of the exact installer SHA. Provider
+URLs and workflow artifact IDs remain outside manifest v1.

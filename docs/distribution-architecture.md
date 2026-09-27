@@ -1,6 +1,6 @@
 # Distribution Architecture (BLOCK 20)
 
-Status: proposed architecture, not an implemented installer or publication plan.
+Status: Core release infrastructure and a gated Standard Windows engineering installer exist; publication remains unimplemented.
 Frozen baseline: `v0.2.0-beta.4` at
 `33937d23cad616fa30e88f0a6e40c02af89a5b3c`.
 The existing private-beta ZIP SHA-256 is
@@ -65,7 +65,7 @@ Proposed names (not files to generate in this block):
 | Artifact | Role |
 | --- | --- |
 | `pcw-mcp-<version>.tgz` | Current preferred canonical Core payload; Developer installation and provisional input to other packages |
-| `PCW-<version>-win-x64-setup.exe` | Standard Windows installer candidate; final extension/technology is undecided |
+| `PCW-Setup-<version>.exe` | Standard Windows installer; Inno Setup 6.4.3, windows/x64, admitted only through the reproducibility/lifecycle gate |
 | `PCW-<version>.mcpb` | MCP Bundle candidate, only after host/runtime compatibility testing |
 | `PCW-MCP-<version>-PRIVATE-BETA.zip` | Existing private handoff kit, not an installer |
 | `release-manifest.json` and `SHA256SUMS.txt` | Release metadata and byte-level integrity for distributed artifacts |

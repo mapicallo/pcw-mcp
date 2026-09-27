@@ -1,15 +1,31 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, mkdir, readFile, readdir, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PINNED_INNO_SETUP_VERSION = "6.4.3";
+export const PINNED_STANDARD_NODE_VERSION = "22.23.3";
+export const PINNED_STANDARD_NODE_ZIP_SHA256 = "2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71";
+export const PINNED_STANDARD_NPM_VERSION = "11.4.2";
+const REPRODUCIBLE_FILE_TIME = new Date("2000-01-01T00:00:00.000Z");
 export function prototypeInstallerName(version) {
   if (typeof version !== "string" || !/^[0-9A-Za-z.+-]+$/u.test(version)) {
     throw new Error("Standard runtime Core version is not safe for an installer filename");
   }
   return `PCW-Setup-${version}-prototype.exe`;
+}
+
+export function officialInstallerName(version) {
+  if (typeof version !== "string" || !/^[0-9A-Za-z.+-]+$/u.test(version)) {
+    throw new Error("Standard runtime Core version is not safe for an installer filename");
+  }
+  return `PCW-Setup-${version}.exe`;
+}
+
+function isDevelopmentVersion(version) {
+  return /(?:^|[.-])dev(?:[.-]|$)/iu.test(version);
 }
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -78,6 +94,41 @@ async function validateRuntime(runtimeDir) {
   return metadata;
 }
 
+async function fingerprintTree(root, prefix = "") {
+  const entries = await readdir(join(root, prefix), { withFileTypes: true });
+  entries.sort((left, right) =>
+    left.name < right.name ? -1 : left.name > right.name ? 1 : 0
+  );
+  const records = [];
+  for (const entry of entries) {
+    const relativePath = prefix ? join(prefix, entry.name) : entry.name;
+    if (entry.isDirectory()) records.push(...await fingerprintTree(root, relativePath));
+    else if (entry.isFile()) {
+      const path = join(root, relativePath);
+      const metadata = await stat(path);
+      records.push({
+        path: relativePath.replaceAll("\\", "/"),
+        sizeBytes: metadata.size,
+        mtimeMs: Math.trunc(metadata.mtimeMs),
+        sha256: createHash("sha256").update(await readFile(path)).digest("hex")
+      });
+    } else {
+      throw new Error(`Standard runtime contains unsupported filesystem entry: ${relativePath}`);
+    }
+  }
+  return records;
+}
+
+async function preInnoFingerprint(runtime, script, installerMetadata) {
+  const input = {
+    runtime: await fingerprintTree(runtime),
+    script: createHash("sha256").update(await readFile(script)).digest("hex"),
+    installerMetadata: createHash("sha256").update(await readFile(installerMetadata)).digest("hex"),
+    installerMetadataMtime: Math.trunc((await stat(installerMetadata)).mtimeMs)
+  };
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
+}
+
 export async function buildStandardWindowsInstaller({
   runtimeDir,
   outputDir,
@@ -114,11 +165,24 @@ export async function buildStandardWindowsInstaller({
       throw new Error(`Inno Setup ${PINNED_INNO_SETUP_VERSION} is required, received ${compilerVersion}`);
     }
     const metadata = await validateRuntime(runtime);
+    if (mode === "release") {
+      if (isDevelopmentVersion(metadata.core.version)) {
+        throw new Error("Official Standard installer refuses development software versions");
+      }
+      if (metadata.node?.version !== PINNED_STANDARD_NODE_VERSION ||
+          metadata.node?.inputType !== "zip" ||
+          metadata.node?.inputSha256 !== PINNED_STANDARD_NODE_ZIP_SHA256 ||
+          metadata.build?.npmVersion !== PINNED_STANDARD_NPM_VERSION) {
+        throw new Error("Official Standard installer requires the pinned Node/npm runtime inputs");
+      }
+    }
     await mkdir(output, { recursive: true });
     const installerMetadata = join(temporary, "installer.json");
     await writeFile(installerMetadata, `${JSON.stringify({
       schemaVersion: 1,
-      productId: "pcw-standard-windows-installer-prototype",
+      productId: mode === "engineering"
+        ? "pcw-standard-windows-installer-prototype"
+        : "pcw-standard-windows-installer",
       softwareVersion: metadata.core.version,
       coreTgzSha256: metadata.core.sha256,
       runtimeSchemaVersion: metadata.schemaVersion,
@@ -126,6 +190,8 @@ export async function buildStandardWindowsInstaller({
       releaseGrade: false,
       signed: false
     }, null, 2)}\n`, "utf8");
+    await utimes(installerMetadata, REPRODUCIBLE_FILE_TIME, REPRODUCIBLE_FILE_TIME);
+    const inputFingerprint = await preInnoFingerprint(runtime, resolve(script), installerMetadata);
     const compileArguments = [
       `/DRuntimeDir=${runtime}`,
       `/DOutputDir=${output}`,
@@ -137,9 +203,17 @@ export async function buildStandardWindowsInstaller({
     if (mode === "engineering") compileArguments.push("/DPcwEngineeringBuild=1");
     compileArguments.push(resolve(script));
     execute(compiler, compileArguments, "Inno Setup compilation");
-    const installer = join(output, prototypeInstallerName(metadata.core.version));
+    const installer = join(output, mode === "engineering"
+      ? prototypeInstallerName(metadata.core.version)
+      : officialInstallerName(metadata.core.version));
     if (!(await stat(installer)).isFile()) throw new Error(`Expected installer was not produced: ${installer}`);
-    return { installer, compilerVersion, metadata };
+    return {
+      installer,
+      compilerVersion,
+      metadata,
+      inputFingerprint,
+      installerSha256: createHash("sha256").update(await readFile(installer)).digest("hex")
+    };
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
@@ -147,12 +221,15 @@ export async function buildStandardWindowsInstaller({
 
 async function main() {
   try {
-    const result = await buildStandardWindowsInstaller(parseStandardInstallerArgs(process.argv.slice(2)));
+    const options = parseStandardInstallerArgs(process.argv.slice(2));
+    const result = await buildStandardWindowsInstaller(options);
     process.stdout.write(`${JSON.stringify({
       ok: true,
       installer: result.installer,
       compilerVersion: result.compilerVersion,
-      prototype: true
+      prototype: options.mode === "engineering",
+      inputFingerprint: result.inputFingerprint,
+      installerSha256: result.installerSha256
     })}\n`);
   } catch (error) {
     process.stderr.write(`${JSON.stringify({

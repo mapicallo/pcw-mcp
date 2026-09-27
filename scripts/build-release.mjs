@@ -14,6 +14,7 @@ import {
   validateOutputLocation
 } from "./generate-release-manifest.mjs";
 import { packCoreTarball } from "./pack-core.mjs";
+import { validateStandardInstallerArtifact } from "./standard-installer-release.mjs";
 
 const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const allowedChannels = ["private-beta", "beta", "stable"];
@@ -28,9 +29,14 @@ export function parseReleaseBuildArgs(args) {
     const arg = args[index];
     if (arg === "--release" && !options.releaseGrade) {
       options.releaseGrade = true;
-    } else if ((arg === "--channel" || arg === "--released-at") &&
+    } else if ((arg === "--channel" || arg === "--released-at" ||
+                arg === "--standard-windows-installer" ||
+                arg === "--standard-windows-verification") &&
                args[index + 1] && !args[index + 1].startsWith("--")) {
-      const key = arg === "--channel" ? "channel" : "releasedAt";
+      const key = arg === "--channel" ? "channel" :
+        arg === "--released-at" ? "releasedAt" :
+        arg === "--standard-windows-installer" ? "standardWindowsInstaller" :
+        "standardWindowsVerification";
       if (options[key] !== undefined) throw new Error(`Repeated option: ${arg}`);
       options[key] = args[++index];
     } else {
@@ -45,6 +51,12 @@ export function parseReleaseBuildArgs(args) {
   }
   if (options.releaseGrade && !options.releasedAt) {
     throw new Error("Release-grade build requires explicit --released-at");
+  }
+  if (Boolean(options.standardWindowsInstaller) !== Boolean(options.standardWindowsVerification)) {
+    throw new Error("Standard Windows installer and verification evidence must be supplied together");
+  }
+  if (options.standardWindowsInstaller && !options.releaseGrade) {
+    throw new Error("Official Standard Windows artifact requires release-grade build mode");
   }
   return options;
 }
@@ -122,11 +134,16 @@ export async function buildRelease({
   channel,
   releaseGrade = false,
   releasedAt,
+  standardWindowsInstaller,
+  standardWindowsVerification,
   packCore = packCoreTarball,
   packagePrivateBeta = runPrivateBetaPackage
 }) {
   parseReleaseBuildArgs(["--channel", channel, ...(releaseGrade ? ["--release"] : []),
-    ...(releasedAt === undefined ? [] : ["--released-at", releasedAt])]);
+    ...(releasedAt === undefined ? [] : ["--released-at", releasedAt]),
+    ...(standardWindowsInstaller === undefined ? [] :
+      ["--standard-windows-installer", standardWindowsInstaller,
+       "--standard-windows-verification", standardWindowsVerification])]);
   const packageJson = JSON.parse(await readFile(join(repositoryRoot, "package.json"), "utf8"));
   const version = releaseManifestSchema.shape.softwareVersion.parse(packageJson.version);
   const versionDirectory = join(repositoryRoot, "artifacts", "releases", version);
@@ -158,12 +175,25 @@ export async function buildRelease({
     }
     await cp(legacyZip, join(stage, zipName));
 
-    const descriptor = descriptorSchema.parse({ artifacts: [
+    const artifacts = [
       { artifactId: "core-npm-tarball", type: "npm-tarball", file: tarballName,
         target: { os: "any", arch: "any" }, runtime: { node: packageJson.engines.node } },
       { artifactId: "private-beta-handoff", type: "private-handoff-zip", file: zipName,
         target: { os: "any", arch: "any" }, runtime: { node: packageJson.engines.node } }
-    ] });
+    ];
+    if (standardWindowsInstaller) {
+      const verification = JSON.parse(await readFile(resolve(standardWindowsVerification), "utf8"));
+      const standardDescriptor = await validateStandardInstallerArtifact({
+        installerPath: resolve(standardWindowsInstaller),
+        verification,
+        softwareVersion: version,
+        coreTgzSha256: sha256(coreBytes),
+        releaseGrade
+      });
+      await cp(resolve(standardWindowsInstaller), join(stage, standardDescriptor.file));
+      artifacts.push(standardDescriptor);
+    }
+    const descriptor = descriptorSchema.parse({ artifacts });
     const descriptorPath = join(stage, "artifact-descriptor.json");
     await writeFile(descriptorPath, JSON.stringify(descriptor), "utf8");
     const manifest = await createReleaseManifest({
@@ -172,7 +202,8 @@ export async function buildRelease({
     await rm(descriptorPath);
     await writeFile(join(stage, "release-manifest.json"), serializeReleaseManifest(manifest));
     const checksumInputs = await Promise.all(
-      [tarballName, zipName, "release-manifest.json"].map(async (name) =>
+      [...manifest.artifacts.map(({ fileName }) => fileName), "release-manifest.json"]
+        .map(async (name) =>
         [name, await readFile(join(stage, name))])
     );
     await writeFile(join(stage, "SHA256SUMS.txt"), checksumText(checksumInputs));

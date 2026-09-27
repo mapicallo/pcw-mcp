@@ -7,6 +7,7 @@ import test from "node:test";
 
 import {
   PINNED_INNO_SETUP_VERSION,
+  officialInstallerName,
   prototypeInstallerName,
   buildStandardWindowsInstaller,
   parseStandardInstallerArgs
@@ -70,7 +71,9 @@ test("Inno skeleton is per-user, consumes a prebuilt runtime and preserves user 
   assert.match(source, /PrivilegesRequired=lowest/u);
   assert.match(source, /DefaultDirName=\{localappdata\}\\Programs\\AI4Context\\PCW/u);
   assert.match(source, /Source: "\{#RuntimeDir\}\\\*"/u);
-  assert.match(source, /OutputBaseFilename=PCW-Setup-\{#AppVersion\}-prototype/u);
+  assert.match(source, /OutputBaseFilename=PCW-Setup-\{#AppVersion\}\{#OutputSuffix\}/u);
+  assert.match(source, /#define OutputSuffix "-prototype"/u);
+  assert.match(source, /#define OutputSuffix ""/u);
   assert.match(source, /core\\standard-tools\\standard-setup\.mjs/u);
   assert.match(source, /Create a new empty PCW context/u);
   assert.match(source, /Use an existing PCW context/u);
@@ -113,7 +116,9 @@ test("installer helper pins Inno and derives metadata from the explicit runtime"
       writeFileSync(join(outputDir, expectedPrototypeInstallerName), "synthetic installer");
       return "compiled";
     };
-    const result = await buildStandardWindowsInstaller({ runtimeDir, outputDir, iscc, execute });
+    const result = await buildStandardWindowsInstaller({
+      runtimeDir, outputDir, iscc, mode: "engineering", execute
+    });
     assert.equal(result.compilerVersion, PINNED_INNO_SETUP_VERSION);
     assert.equal(result.installer, join(outputDir, expectedPrototypeInstallerName));
     assert.deepEqual(capturedMetadata, {
@@ -142,13 +147,46 @@ test("synthetic location overrides require an explicit engineering build", () =>
       return "compiled";
     };
 
-    await buildStandardWindowsInstaller({ runtimeDir, outputDir, iscc, execute });
-    assert.equal(compileCalls[0].includes("/DPcwEngineeringBuild=1"), false);
-
     await buildStandardWindowsInstaller({
       runtimeDir, outputDir, iscc, mode: "engineering", execute
     });
-    assert.equal(compileCalls[1].includes("/DPcwEngineeringBuild=1"), true);
+    assert.equal(compileCalls[0].includes("/DPcwEngineeringBuild=1"), true);
+  }));
+
+test("official mode rejects development identity and uses an unsuffixed release filename", () =>
+  fixture(async ({ runtimeDir, outputDir, iscc }) => {
+    await assert.rejects(buildStandardWindowsInstaller({
+      runtimeDir,
+      outputDir,
+      iscc,
+      mode: "release",
+      execute: (_command, args) => args.some((arg) => arg.endsWith("version-probe.iss"))
+        ? `Compiler engine version: Inno Setup ${PINNED_INNO_SETUP_VERSION}`
+        : "compiled"
+    }), /refuses development software versions/);
+    assert.equal(officialInstallerName("0.3.0-beta.2"), "PCW-Setup-0.3.0-beta.2.exe");
+    assert.equal(officialInstallerName("0.3.0-beta.2").includes("prototype"), false);
+  }));
+
+test("official mode enforces pinned Node archive and npm identities", () =>
+  fixture(async ({ runtimeDir, outputDir, iscc }) => {
+    const metadataPath = join(runtimeDir, "metadata", "standard-runtime.json");
+    const metadata = JSON.parse(await readFile(metadataPath, "utf8"));
+    metadata.core.version = "0.3.0-beta.2";
+    metadata.node = {
+      version: "22.23.3",
+      inputType: "zip",
+      inputSha256: "0".repeat(64)
+    };
+    metadata.build = { npmVersion: "11.4.2" };
+    await writeFile(metadataPath, JSON.stringify(metadata));
+    await assert.rejects(buildStandardWindowsInstaller({
+      runtimeDir,
+      outputDir,
+      iscc,
+      mode: "release",
+      execute: () => `Compiler engine version: Inno Setup ${PINNED_INNO_SETUP_VERSION}`
+    }), /pinned Node\/npm runtime inputs/);
   }));
 
 test("installer build refuses an unpinned Inno compiler", () =>
@@ -161,11 +199,13 @@ test("installer build refuses an unpinned Inno compiler", () =>
     }), /6\.4\.3 is required/);
   }));
 
-test("installer output remains outside release manifests and publication workflows", async () => {
+test("installer enters release tooling only through explicit verification and is not uploaded by dev CI", async () => {
   const files = await Promise.all([
     readFile(join(repositoryRoot, "scripts", "build-release.mjs"), "utf8"),
-    readFile(join(repositoryRoot, ".github", "workflows", "release-build.yml"), "utf8")
+    readFile(join(repositoryRoot, ".github", "workflows", "standard-windows.yml"), "utf8")
   ]);
-  assert.equal(files.some((text) => text.includes(expectedPrototypeInstallerName)), false);
-  assert.equal(files.some((text) => text.includes("standard-windows-installer")), false);
+  assert.match(files[0], /standardWindowsVerification/u);
+  assert.match(files[0], /validateStandardInstallerArtifact/u);
+  assert.doesNotMatch(files[1], /actions\/upload-artifact/iu);
+  assert.doesNotMatch(files[1], /PCW-Setup-.*\.exe.*upload/iu);
 });

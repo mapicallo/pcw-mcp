@@ -7,12 +7,19 @@ import { fileURLToPath } from "node:url";
 import { unzipSync } from "fflate";
 
 import { releaseManifestSchema } from "./generate-release-manifest.mjs";
+import {
+  STANDARD_WINDOWS_ARTIFACT_ID,
+  validateStandardInstallerArtifact
+} from "./standard-installer-release.mjs";
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-export async function verifyReleaseSet(directory, { requireCleanSource = false } = {}) {
+export async function verifyReleaseSet(directory, {
+  requireCleanSource = false,
+  installerVerification
+} = {}) {
   const root = resolve(directory);
   const manifestBytes = await readFile(resolve(root, "release-manifest.json"));
   const manifest = releaseManifestSchema.parse(JSON.parse(manifestBytes.toString("utf8")));
@@ -27,7 +34,14 @@ export async function verifyReleaseSet(directory, { requireCleanSource = false }
   const coreName = `pcw-mcp-${version}.tgz`;
   const bundleName = `PCW-MCP-${version}-PRIVATE-BETA`;
   const zipName = `${bundleName}.zip`;
-  const names = [coreName, zipName, "release-manifest.json", "SHA256SUMS.txt"];
+  const installerArtifact = manifest.artifacts.find(
+    ({ artifactId }) => artifactId === STANDARD_WINDOWS_ARTIFACT_ID
+  );
+  const names = [
+    ...manifest.artifacts.map(({ fileName }) => fileName),
+    "release-manifest.json",
+    "SHA256SUMS.txt"
+  ];
   const actual = (await readdir(root)).sort();
   if (JSON.stringify(actual) !== JSON.stringify([...names].sort())) {
     throw new Error("Release set has missing or unexpected files");
@@ -37,6 +51,12 @@ export async function verifyReleaseSet(directory, { requireCleanSource = false }
     ["core-npm-tarball", { type: "npm-tarball", fileName: coreName }],
     ["private-beta-handoff", { type: "private-handoff-zip", fileName: zipName }]
   ]);
+  if (installerArtifact) {
+    expectedDescriptors.set(STANDARD_WINDOWS_ARTIFACT_ID, {
+      type: "windows-installer",
+      fileName: `PCW-Setup-${version}.exe`
+    });
+  }
   if (manifest.artifacts.length !== expectedDescriptors.size) {
     throw new Error("Release manifest must describe exactly the Core and handoff ZIP");
   }
@@ -57,6 +77,11 @@ export async function verifyReleaseSet(directory, { requireCleanSource = false }
         artifact.type !== expected.type || artifact.fileName !== expected.fileName) {
       throw new Error(`Unexpected or duplicate artifact descriptor: ${artifact.artifactId}`);
     }
+    if (artifact.artifactId === STANDARD_WINDOWS_ARTIFACT_ID &&
+        (artifact.target?.os !== "windows" || artifact.target?.arch !== "x64" ||
+         artifact.runtime?.node !== "22.23.3")) {
+      throw new Error("Standard installer manifest target/runtime contract is invalid");
+    }
     seen.add(artifact.artifactId);
     const content = bytes.get(artifact.fileName);
     if (artifact.sizeBytes !== content.length || artifact.sha256 !== hashes[artifact.fileName]) {
@@ -64,7 +89,10 @@ export async function verifyReleaseSet(directory, { requireCleanSource = false }
     }
   }
 
-  const checksumNames = [coreName, zipName, "release-manifest.json"].sort();
+  const checksumNames = [
+    ...manifest.artifacts.map(({ fileName }) => fileName),
+    "release-manifest.json"
+  ].sort();
   const expectedSums = `${checksumNames.map((name) => `${hashes[name]}  ${name}`).join("\n")}\n`;
   if (bytes.get("SHA256SUMS.txt").toString("utf8") !== expectedSums) {
     throw new Error("SHA256SUMS.txt does not match final release bytes");
@@ -75,6 +103,18 @@ export async function verifyReleaseSet(directory, { requireCleanSource = false }
   if (!embedded || !bytes.get(coreName).equals(Buffer.from(embedded))) {
     throw new Error("ZIP-embedded Core differs from the top-level Core tarball");
   }
+  if (installerArtifact) {
+    if (!installerVerification) {
+      throw new Error("Standard installer release set requires verification evidence");
+    }
+    await validateStandardInstallerArtifact({
+      installerPath: resolve(root, installerArtifact.fileName),
+      verification: JSON.parse(await readFile(resolve(installerVerification), "utf8")),
+      softwareVersion: version,
+      coreTgzSha256: hashes[coreName],
+      releaseGrade: manifest.source.gitTag !== null
+    });
+  }
   return hashes;
 }
 
@@ -84,9 +124,11 @@ function parseArgs(args) {
     const arg = args[index];
     if (arg === "--require-clean-source" && !options.requireCleanSource) {
       options.requireCleanSource = true;
-    } else if (["--directory", "--snapshot", "--compare", "--metadata-directory"].includes(arg) &&
+    } else if (["--directory", "--snapshot", "--compare", "--metadata-directory",
+                "--installer-verification"].includes(arg) &&
                args[index + 1] && !args[index + 1].startsWith("--")) {
-      const key = arg === "--metadata-directory" ? "metadataDirectory" : arg.slice(2);
+      const key = arg === "--metadata-directory" ? "metadataDirectory" :
+        arg === "--installer-verification" ? "installerVerification" : arg.slice(2);
       if (options[key]) throw new Error(`Repeated option: ${arg}`);
       options[key] = args[++index];
     } else {
@@ -108,7 +150,7 @@ function parseArgs(args) {
   return options;
 }
 
-async function writeVerificationMetadata(directory, releaseDirectory, hashes) {
+async function writeVerificationMetadata(directory, releaseDirectory, hashes, installerVerification) {
   const manifest = JSON.parse(await readFile(resolve(releaseDirectory, "release-manifest.json"), "utf8"));
   const version = manifest.softwareVersion;
   const report = {
@@ -126,6 +168,28 @@ async function writeVerificationMetadata(directory, releaseDirectory, hashes) {
     embeddedCoreByteIdentical: true,
     verificationSucceeded: true
   };
+  if (installerVerification) {
+    const installer = JSON.parse(await readFile(resolve(installerVerification), "utf8"));
+    report.standardWindowsInstaller = {
+      artifactId: installer.artifactId,
+      installerSha256: installer.buildAInstallerSha256,
+      coreTgzSha256: installer.coreTgzSha256,
+      target: installer.target,
+      runtime: installer.runtime,
+      nodeInputSha256: installer.nodeInputSha256,
+      npmVersion: installer.npmVersion,
+      innoVersion: installer.innoVersion,
+      innoInstallerSha256: installer.innoInstallerSha256,
+      deterministicBuildsMatch: installer.deterministicBuildsMatch,
+      lifecyclePassed: installer.lifecycle.passed,
+      lifecycleInstallerSha256: installer.lifecycle.installerSha256,
+      mcpToolCount: installer.lifecycle.mcpToolCount,
+      workstreamCreated: installer.lifecycle.workstreamCreated,
+      contextPreserved: installer.lifecycle.contextPreserved,
+      realClientConfigUsed: installer.lifecycle.realClientConfigUsed,
+      signed: installer.signed
+    };
+  }
   await mkdir(directory, { recursive: true });
   if ((await readdir(directory)).length !== 0) {
     throw new Error("Verification metadata directory must be empty");
@@ -147,7 +211,12 @@ async function main() {
     throw new Error("Release set B differs from verified release set A");
   }
   if (options.metadataDirectory) {
-    await writeVerificationMetadata(options.metadataDirectory, options.directory, hashes);
+    await writeVerificationMetadata(
+      options.metadataDirectory,
+      options.directory,
+      hashes,
+      options.installerVerification
+    );
   }
   process.stdout.write(`${JSON.stringify(hashes)}\n`);
 }

@@ -9,6 +9,7 @@ import test from "node:test";
 import { unzipSync, zipSync } from "fflate";
 
 import { buildRelease, checksumText, parseReleaseBuildArgs } from "../scripts/build-release.mjs";
+import { createStandardInstallerVerification } from "../scripts/standard-installer-release.mjs";
 
 const version = "7.8.9-beta.2";
 const zipName = `PCW-MCP-${version}-PRIVATE-BETA.zip`;
@@ -192,3 +193,54 @@ test("release-grade build requires annotated version tag at clean HEAD", () => f
   assert.equal(result.manifest.source.dirty, false);
   assert.equal(result.manifest.releasedAt, options.releasedAt);
 }));
+
+test("release-grade set includes one verified Standard installer and hashes it", () =>
+  fixture(async ({ root, packCore, packagePrivateBeta }) => {
+    const input = join(root, "artifacts", "standard-input");
+    await mkdir(input, { recursive: true });
+    const installerName = `PCW-Setup-${version}.exe`;
+    const installerPath = join(input, installerName);
+    const verificationPath = join(input, "installer-verification.json");
+    const installerBytes = Buffer.from("Synthetic verified installer bytes\n");
+    const installerSha256 = hash(installerBytes);
+    const coreSha256 = hash("Synthetic Core bytes\n");
+    await writeFile(installerPath, installerBytes);
+    const verification = createStandardInstallerVerification({
+      softwareVersion: version,
+      fileName: installerName,
+      coreTgzSha256: coreSha256,
+      preInnoInputSha256: hash("stable inputs"),
+      buildASha256: installerSha256,
+      buildBSha256: installerSha256,
+      lifecycle: {
+        installerSha256,
+        passed: true,
+        mcpToolCount: 16,
+        workstreamCreated: true,
+        contextPreserved: true,
+        realClientConfigUsed: false
+      }
+    });
+    await writeFile(verificationPath, JSON.stringify(verification));
+    git(root, "-c", "user.name=PCW Test", "-c", "user.email=test@example.invalid",
+      "tag", "-a", `v${version}`, "-m", "Synthetic release");
+    const result = await buildRelease({
+      repositoryRoot: root,
+      channel: "private-beta",
+      releaseGrade: true,
+      releasedAt: "2026-09-19T12:00:00.000Z",
+      standardWindowsInstaller: installerPath,
+      standardWindowsVerification: verificationPath,
+      packCore,
+      packagePrivateBeta
+    });
+    const artifact = result.manifest.artifacts.find(
+      ({ artifactId }) => artifactId === "standard-windows-installer"
+    );
+    assert.deepEqual(artifact.target, { os: "windows", arch: "x64" });
+    assert.deepEqual(artifact.runtime, { node: "22.23.3" });
+    assert.equal(artifact.fileName, installerName);
+    assert.equal(artifact.sha256, installerSha256);
+    assert.ok((await readFile(join(result.directory, "SHA256SUMS.txt"), "utf8"))
+      .includes(`${installerSha256}  ${installerName}`));
+  }));

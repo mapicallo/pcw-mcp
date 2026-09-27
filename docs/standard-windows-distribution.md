@@ -803,3 +803,42 @@ uninstall preservation, and reinstall with the existing context passed.
 SmartScreen was not observed during the local silent engineering run. This is
 not evidence that an externally distributed unsigned installer will avoid
 SmartScreen.
+
+## 37. BLOCK 30E release-artifact and reproducibility gate
+
+The Standard Windows artifact contract uses artifact ID
+standard-windows-installer, type windows-installer, official filename
+PCW-Setup-<softwareVersion>.exe, target windows/x64, and bundled Node 22.23.3.
+Engineering builds retain the explicit -prototype.exe suffix. Official mode
+rejects development versions such as 0.3.0-beta.2-dev.0.
+
+The Windows toolchain is pinned to Node 22.23.3 from
+node-v22.23.3-win-x64.zip SHA-256
+2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71,
+npm 11.4.2, and Inno Setup 6.4.3 from installer SHA-256
+f3c42116542c4cc57263c5ba6c4feabfc49fe771f2f98a79d2f7628b8762723b.
+Builders remain network-free; CI verifies downloaded inputs and passes local
+paths explicitly.
+
+Two initial 6.4.3 builds had identical PE headers/resources and equal size but
+18 differing bytes in three Inno-overlay ranges. The changing input was the
+mtime of generated installer.json. Inno's later notimestamp flag is not
+available in 6.4.3, so the helper now assigns that file a fixed UTC mtime.
+Two builds from the same staged runtime then produced byte-identical unsigned
+EXEs. A path-free pre-Inno fingerprint covers runtime bytes, sizes, mtimes,
+script bytes, and generated metadata.
+
+Release finalization fails closed unless A and B have identical input
+fingerprints and EXE bytes; the EXE SHA is also the SHA tested by lifecycle;
+the runtime Core SHA equals the canonical TGZ; and target, Node/npm/Inno pins,
+16-tool discovery, workstream creation, context preservation, and non-use of
+real client configuration are attested. The exact tested EXE is finalized,
+not rebuilt. Development CI retains no EXE artifact.
+
+A future release workflow should transfer the once-built canonical Core TGZ to
+the Windows job, verify its SHA, return the verified installer and evidence to
+finalization with restricted retention, and publish only after authorization.
+
+Signing is separate: deterministic verified unsigned EXE, then Authenticode,
+then a new final SHA-256 and post-signature verification. No signing, upload,
+tag, or release occurs in BLOCK 30E.

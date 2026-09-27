@@ -11,7 +11,7 @@ bytes to the top-level Core before finalizing. It never obtains the canonical
 Core by extracting the ZIP. The legacy `artifacts/private-beta/<version>/`
 output remains available, and `npm run package:private-beta` still works alone.
 
-The release set contains exactly:
+The base private-beta release set contains:
 
 - `pcw-mcp-<version>.tgz`
 - `PCW-MCP-<version>-PRIVATE-BETA.zip`
@@ -55,3 +55,10 @@ Cross-platform bit-for-bit reproducibility remains unproven.
 
 The separate GitHub Actions verification pipeline is described in
 [release CI](release-ci.md). Its workflow artifact is not a published release.
+
+A future release-grade invocation may additionally supply a verified
+PCW-Setup-<version>.exe and its evidence. The manifest then describes
+standard-windows-installer / windows-installer for windows/x64 with Node
+22.23.3, and SHA256SUMS.txt includes it. The optional Standard input is refused
+in development build mode and for development software versions. There is no
+MCPB artifact yet.

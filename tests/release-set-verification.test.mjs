@@ -9,6 +9,7 @@ import test from "node:test";
 import { zipSync } from "fflate";
 
 import { verifyReleaseSet } from "../scripts/verify-release-set.mjs";
+import { createStandardInstallerVerification } from "../scripts/standard-installer-release.mjs";
 
 const version = "7.8.9-dev.2";
 const coreName = `pcw-mcp-${version}.tgz`;
@@ -146,3 +147,77 @@ test("CLI emits only verified non-binary metadata after matching generations", (
     await rm(output, { recursive: true, force: true });
   }
 }));
+
+test("verifier accepts a gated Standard installer and includes it in checksums/report", () =>
+  fixture(async ({ directory, core, zip, manifest }) => {
+    const installerName = `PCW-Setup-${version}.exe`;
+    const installer = Buffer.from("Synthetic Standard installer\n");
+    const installerHash = sha256(installer);
+    const evidencePath = join(tmpdir(), `pcw-standard-evidence-${process.pid}-${Date.now()}.json`);
+    const output = await mkdtemp(join(tmpdir(), "pcw-standard-verification-"));
+    try {
+      manifest.artifacts.push({
+        artifactId: "standard-windows-installer",
+        type: "windows-installer",
+        fileName: installerName,
+        sizeBytes: installer.length,
+        sha256: installerHash,
+        target: { os: "windows", arch: "x64" },
+        runtime: { node: "22.23.3" }
+      });
+      const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
+      await writeFile(join(directory, installerName), installer);
+      await writeFile(join(directory, "release-manifest.json"), manifestBytes);
+      const checksumEntries = [
+        [coreName, core],
+        [zipName, zip],
+        [installerName, installer],
+        ["release-manifest.json", manifestBytes]
+      ].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+      await writeFile(join(directory, "SHA256SUMS.txt"),
+        `${checksumEntries.map(([name, bytes]) => `${sha256(bytes)}  ${name}`).join("\n")}\n`);
+      const evidence = createStandardInstallerVerification({
+        softwareVersion: version,
+        fileName: installerName,
+        coreTgzSha256: sha256(core),
+        preInnoInputSha256: sha256("stable inputs"),
+        buildASha256: installerHash,
+        buildBSha256: installerHash,
+        lifecycle: {
+          installerSha256: installerHash,
+          passed: true,
+          mcpToolCount: 16,
+          workstreamCreated: true,
+          contextPreserved: true,
+          realClientConfigUsed: false
+        }
+      });
+      await writeFile(evidencePath, JSON.stringify(evidence));
+      const hashes = await verifyReleaseSet(directory, {
+        requireCleanSource: true,
+        installerVerification: evidencePath
+      });
+      assert.equal(hashes[installerName], installerHash);
+      const snapshot = join(output, "snapshot.json");
+      const metadataDirectory = join(output, "metadata");
+      const invoke = (...args) => spawnSync(process.execPath, [
+        verifier,
+        "--directory", directory,
+        "--installer-verification", evidencePath,
+        ...args,
+        "--require-clean-source"
+      ], { encoding: "utf8" });
+      assert.equal(invoke("--snapshot", snapshot).status, 0);
+      assert.equal(invoke("--compare", snapshot, "--metadata-directory", metadataDirectory).status, 0);
+      const report = JSON.parse(await readFile(
+        join(metadataDirectory, "verification-report.json"), "utf8"
+      ));
+      assert.equal(report.standardWindowsInstaller.installerSha256, installerHash);
+      assert.equal(report.standardWindowsInstaller.coreTgzSha256, sha256(core));
+      assert.equal(report.standardWindowsInstaller.workstreamCreated, true);
+      assert.equal(report.standardWindowsInstaller.realClientConfigUsed, false);
+    } finally {
+      await rm(evidencePath, { force: true });
+      await rm(output, { recursive: true, force: true });
+    }
+  }));

@@ -18,6 +18,13 @@
 #endif
 
 #define AppName "PCW"
+#ifdef PcwEngineeringBuild
+  #define OutputSuffix "-prototype"
+  #define DistributionLabel "Standard prototype"
+#else
+  #define OutputSuffix ""
+  #define DistributionLabel "Standard"
+#endif
 
 [Setup]
 AppId={{F464D657-5CE8-4E9B-A51B-AB613862CA18}
@@ -31,11 +38,11 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
-OutputBaseFilename=PCW-Setup-{#AppVersion}-prototype
+OutputBaseFilename=PCW-Setup-{#AppVersion}{#OutputSuffix}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayName=PCW {#AppVersion} Standard prototype
+UninstallDisplayName=PCW {#AppVersion} {#DistributionLabel}
 LicenseFile={#RuntimeDir}\core\PRIVATE-BETA-TERMS.md
 SetupLogging=yes
 
