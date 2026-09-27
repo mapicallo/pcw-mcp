@@ -727,6 +727,10 @@ states fail closed. Whole-file backups are never restored as normal uninstall.
 The runtime is removed by Inno; contexts, integration state, and recovery
 backups are preserved. This allows diagnosis and manual recovery.
 
+Silent uninstall does not remove client registrations by default and shows no
+custom confirmation dialog. Automation must opt in explicitly with
+`/PCWRemoveOwned=yes`; otherwise only installer-owned software is removed.
+
 ### Logging and security boundary
 
 Inno setup logging is enabled. Helper output contains status, selected paths,
@@ -757,3 +761,45 @@ This capability is present only in development source after the frozen
 `0.3.0-beta.1` release. A future canonical Core release must include it before
 a Standard installer using new-context mode can be distributed. BLOCK 30D.1
 does not compile, tag, publish, or replace any frozen artifact.
+
+## 36. BLOCK 30D.2 observed Windows engineering spike
+
+The first real installer spike used Inno Setup 6.4.3 and the pinned
+`node-v22.23.3-win-x64.zip`. It compiled and exercised the development-only
+`0.3.0-beta.2-dev.0` prototype through new-context installation, installed
+Doctor, MCP initialization and 16-tool discovery, first workstream creation,
+same-version reinstall, corruption detection and repair, uninstall, and
+existing-context reinstall. The final clean uninstall removed the registered
+runtime while preserving the context and its workstream.
+
+The spike confirmed that unattended tests need explicit isolated inputs.
+Engineering builds compiled with `PcwEngineeringBuild` accept `/PCWContext`,
+`/PCWContextMode`, `/PCWStateRoot`, and `/PCWHomeDirectory`; normal builds
+omit these synthetic overrides and resolve the production user locations. The
+install destination remains Inno's standard `/DIR` override. The selected
+context parent, rather than an unconditional real-user directory, is created
+when required. Core initialization remains authoritative for non-empty/path
+safety and creates `pcw.yml`; the installer does not. These parameters do not
+enable automatic client mutation: Cursor remains opt-in and Codex/Claude remain
+guided.
+
+Observed compiler compatibility fixes include probing the real compiler-engine
+banner, using Inno's `%USERPROFILE` environment constant, matching the 6.4.3
+directory-page API, loading helper results as UTF-8, and avoiding a blocking
+custom prompt during silent uninstall. The prototype remains unsigned and is
+an ignored engineering artifact, not a release artifact.
+
+`/PCWRemoveOwned=yes` is a deliberate silent-uninstall option, not a synthetic
+location override. Without it, silent uninstall preserves client registrations,
+integration state, recovery backups, and all contexts. With it, removal still
+uses the ownership ledger and drift-safe semantic edit; it never restores a
+whole client configuration. Interactive uninstall may ask whether to remove
+owned registrations. Context deletion is not offered.
+
+Observed on the real Windows spike: `PrivilegesRequired=lowest` produced no UAC
+prompt; compilation used Inno Setup 6.4.3 and Node 22.23.3; installed Doctor,
+MCP initialization, and 16-tool discovery passed; reinstall, corruption repair,
+uninstall preservation, and reinstall with the existing context passed.
+SmartScreen was not observed during the local silent engineering run. This is
+not evidence that an externally distributed unsigned installer will avoid
+SmartScreen.

@@ -216,6 +216,21 @@ test("paths containing spaces, ampersands and Unicode remain structured values",
     assert.equal(entry.args[1], common.contextRoot);
   }));
 
+test("result files preserve UTF-8 paths and messages", () =>
+  fixture(async ({ common, root }) => {
+    const unicodeContext = join(root, "Proyecto Ágil & QA (2026)", "日本語");
+    await mkdir(unicodeContext, { recursive: true });
+    await writeFile(join(unicodeContext, "pcw.yml"), "version: 1\nworkstreams: {}\n", "utf8");
+    const resultFile = join(root, "resultado-日本語.json");
+    const result = await execFileAsync(process.execPath, [
+      helperPath, "validate-context", "--runtime-root", common.runtimeRoot,
+      "--context-root", unicodeContext, "--result-file", resultFile
+    ]);
+    assert.equal(result.stderr, "");
+    assert.equal(JSON.parse(await readFile(resultFile, "utf8")).contextRoot, unicodeContext);
+    assert.equal(JSON.parse(result.stdout).contextRoot, unicodeContext);
+  }));
+
 test("apply and remove never delete the selected context", () =>
   fixture(async ({ common, contextRoot }) => {
     await runStandardSetupCommand("apply", common);

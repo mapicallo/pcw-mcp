@@ -47,11 +47,19 @@ async function fixture(run) {
 test("installer build CLI requires explicit runtime, output and compiler paths", () => {
   assert.deepEqual(parseStandardInstallerArgs([
     "--runtime-dir", "C:\\runtime", "--output-dir", "C:\\output", "--iscc", "C:\\inno\\ISCC.exe"
-  ]), { runtimeDir: "C:\\runtime", outputDir: "C:\\output", iscc: "C:\\inno\\ISCC.exe" });
+  ]), { runtimeDir: "C:\\runtime", outputDir: "C:\\output", iscc: "C:\\inno\\ISCC.exe", mode: "release" });
+  assert.equal(parseStandardInstallerArgs([
+    "--runtime-dir", "C:\\runtime", "--output-dir", "C:\\output", "--iscc", "C:\\inno\\ISCC.exe",
+    "--mode", "engineering"
+  ]).mode, "engineering");
   assert.throws(() => parseStandardInstallerArgs(["--runtime-dir", "C:\\runtime"]), /outputDir is required/);
   assert.throws(() => parseStandardInstallerArgs([
     "--runtime-dir", "relative", "--output-dir", "C:\\output", "--iscc", "C:\\inno\\ISCC.exe"
   ]), /runtimeDir must be an absolute path/);
+  assert.throws(() => parseStandardInstallerArgs([
+    "--runtime-dir", "C:\\runtime", "--output-dir", "C:\\output", "--iscc", "C:\\inno\\ISCC.exe",
+    "--mode", "production-ish"
+  ]), /mode must be release or engineering/);
 });
 
 test("Inno skeleton is per-user, consumes a prebuilt runtime and preserves user data", async () => {
@@ -65,9 +73,20 @@ test("Inno skeleton is per-user, consumes a prebuilt runtime and preserves user 
   assert.match(source, /Use an existing PCW context/u);
   assert.match(source, /RunSetupHelper\('init-context'/u);
   assert.match(source, /RunSetupHelper\('validate-context'/u);
-  assert.match(source, /\{userprofile\}\\PCW\\My-PCW-Context/u);
-  assert.match(source, /Name: "\{userprofile\}\\PCW"; Flags: uninsneveruninstall/u);
+  assert.match(source, /\{param:PCWContext\|\}/u);
+  assert.match(source, /\{param:PCWContextMode\|new\}/u);
+  assert.match(source, /\{param:PCWStateRoot\|\}/u);
+  assert.match(source, /\{param:PCWHomeDirectory\|\}/u);
+  assert.match(source, /#ifdef PcwEngineeringBuild[\s\S]*\{param:PCWStateRoot\|\}/u);
+  assert.match(source, /#ifdef PcwEngineeringBuild[\s\S]*\{param:PCWHomeDirectory\|\}/u);
+  assert.match(source, /#ifdef PcwEngineeringBuild[\s\S]*\{param:PCWContext\|\}/u);
+  assert.match(source, /#ifdef PcwEngineeringBuild[\s\S]*\{param:PCWContextMode\|new\}/u);
+  assert.match(source, /ResultText := UTF8Decode\(RawResultText\)/u);
+  assert.match(source, /\{%USERPROFILE\}\\PCW\\My-PCW-Context/u);
+  assert.match(source, /Name: "\{code:ContextParent\}"; Flags: uninsneveruninstall/u);
   assert.match(source, /--all-owned/u);
+  assert.match(source, /UninstallSilent/u);
+  assert.match(source, /\{param:PCWRemoveOwned\|no\}/u);
   assert.match(source, /context roots and recovery backups will be preserved/iu);
   assert.doesNotMatch(source, /npm\s+(ci|install)/iu);
   assert.doesNotMatch(source, /https?:\/\//iu);
@@ -82,7 +101,9 @@ test("installer helper pins Inno and derives metadata from the explicit runtime"
   fixture(async ({ root, runtimeDir, outputDir, iscc }) => {
     let capturedMetadata;
     const execute = (_command, args) => {
-      if (args[0] === "/?") return `Inno Setup 6 Command-Line Compiler version ${PINNED_INNO_SETUP_VERSION}`;
+      if (args.some((arg) => arg.endsWith("version-probe.iss"))) {
+        return `Compiler engine version: Inno Setup ${PINNED_INNO_SETUP_VERSION}`;
+      }
       const metadataArg = args.find((arg) => arg.startsWith("/DInstallerMetadataFile="));
       capturedMetadata = JSON.parse(readFileSync(metadataArg.slice(metadataArg.indexOf("=") + 1), "utf8"));
       mkdirSync(outputDir, { recursive: true });
@@ -103,6 +124,28 @@ test("installer helper pins Inno and derives metadata from the explicit runtime"
       signed: false
     });
     assert.equal(JSON.stringify(capturedMetadata).includes(root), false);
+  }));
+
+test("synthetic location overrides require an explicit engineering build", () =>
+  fixture(async ({ runtimeDir, outputDir, iscc }) => {
+    const compileCalls = [];
+    const execute = (_command, args) => {
+      if (args.some((arg) => arg.endsWith("version-probe.iss"))) {
+        return `Compiler engine version: Inno Setup ${PINNED_INNO_SETUP_VERSION}`;
+      }
+      compileCalls.push(args);
+      mkdirSync(outputDir, { recursive: true });
+      writeFileSync(join(outputDir, expectedPrototypeInstallerName), "synthetic installer");
+      return "compiled";
+    };
+
+    await buildStandardWindowsInstaller({ runtimeDir, outputDir, iscc, execute });
+    assert.equal(compileCalls[0].includes("/DPcwEngineeringBuild=1"), false);
+
+    await buildStandardWindowsInstaller({
+      runtimeDir, outputDir, iscc, mode: "engineering", execute
+    });
+    assert.equal(compileCalls[1].includes("/DPcwEngineeringBuild=1"), true);
   }));
 
 test("installer build refuses an unpinned Inno compiler", () =>

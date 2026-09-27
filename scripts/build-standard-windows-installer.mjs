@@ -30,7 +30,8 @@ export function parseStandardInstallerArgs(args) {
     ["--runtime-dir", "runtimeDir"],
     ["--output-dir", "outputDir"],
     ["--iscc", "iscc"],
-    ["--script", "script"]
+    ["--script", "script"],
+    ["--mode", "mode"]
   ]);
   const options = {};
   for (let index = 0; index < args.length; index += 2) {
@@ -44,11 +45,15 @@ export function parseStandardInstallerArgs(args) {
     if (!options[key]) throw new Error(`${key} is required`);
     if (!isAbsolute(options[key])) throw new Error(`${key} must be an absolute path`);
   }
+  options.mode ??= "release";
+  if (!new Set(["release", "engineering"]).has(options.mode)) {
+    throw new Error("mode must be release or engineering");
+  }
   return options;
 }
 
 export function parseInnoVersion(output) {
-  const match = output.match(/Inno Setup(?: 6)? Command-Line Compiler version ([0-9]+\.[0-9]+\.[0-9]+)/iu);
+  const match = output.match(/(?:Compiler engine version:\s*Inno Setup|Inno Setup(?: 6)? Command-Line Compiler version)\s+([0-9]+\.[0-9]+\.[0-9]+)/iu);
   if (!match) throw new Error("Unable to determine Inno Setup compiler version");
   return match[1];
 }
@@ -78,20 +83,38 @@ export async function buildStandardWindowsInstaller({
   outputDir,
   iscc,
   script = defaultScript,
+  mode = "release",
   execute = run
 }) {
+  if (!new Set(["release", "engineering"]).has(mode)) {
+    throw new Error("mode must be release or engineering");
+  }
   const runtime = resolve(runtimeDir);
   const output = resolve(outputDir);
   const compiler = resolve(iscc);
-  const versionOutput = execute(compiler, ["/?"], "Inno Setup version check");
-  const compilerVersion = parseInnoVersion(versionOutput);
-  if (compilerVersion !== PINNED_INNO_SETUP_VERSION) {
-    throw new Error(`Inno Setup ${PINNED_INNO_SETUP_VERSION} is required, received ${compilerVersion}`);
-  }
-  const metadata = await validateRuntime(runtime);
-  await mkdir(output, { recursive: true });
   const temporary = await mkdtemp(join(tmpdir(), "pcw-standard-installer-"));
   try {
+    const versionProbe = join(temporary, "version-probe.iss");
+    await writeFile(versionProbe, [
+      "[Setup]",
+      "AppName=PCW Compiler Probe",
+      "AppVersion=0",
+      "DefaultDirName={tmp}\\PCW-Compiler-Probe",
+      "Uninstallable=no",
+      "CreateAppDir=no",
+      ""
+    ].join("\n"), "utf8");
+    const versionOutput = execute(compiler, [
+      `/O${temporary}`,
+      "/Fpcw-inno-version-probe",
+      versionProbe
+    ], "Inno Setup version check");
+    const compilerVersion = parseInnoVersion(versionOutput);
+    if (compilerVersion !== PINNED_INNO_SETUP_VERSION) {
+      throw new Error(`Inno Setup ${PINNED_INNO_SETUP_VERSION} is required, received ${compilerVersion}`);
+    }
+    const metadata = await validateRuntime(runtime);
+    await mkdir(output, { recursive: true });
     const installerMetadata = join(temporary, "installer.json");
     await writeFile(installerMetadata, `${JSON.stringify({
       schemaVersion: 1,
@@ -103,15 +126,17 @@ export async function buildStandardWindowsInstaller({
       releaseGrade: false,
       signed: false
     }, null, 2)}\n`, "utf8");
-    execute(compiler, [
+    const compileArguments = [
       `/DRuntimeDir=${runtime}`,
       `/DOutputDir=${output}`,
       `/DAppVersion=${metadata.core.version}`,
       `/DCoreSha256=${metadata.core.sha256}`,
       `/DRuntimeSchemaVersion=${metadata.schemaVersion}`,
-      `/DInstallerMetadataFile=${installerMetadata}`,
-      resolve(script)
-    ], "Inno Setup compilation");
+      `/DInstallerMetadataFile=${installerMetadata}`
+    ];
+    if (mode === "engineering") compileArguments.push("/DPcwEngineeringBuild=1");
+    compileArguments.push(resolve(script));
+    execute(compiler, compileArguments, "Inno Setup compilation");
     const installer = join(output, prototypeInstallerName(metadata.core.version));
     if (!(await stat(installer)).isFile()) throw new Error(`Expected installer was not produced: ${installer}`);
     return { installer, compilerVersion, metadata };

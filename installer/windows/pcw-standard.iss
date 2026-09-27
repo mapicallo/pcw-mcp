@@ -40,7 +40,7 @@ LicenseFile={#RuntimeDir}\core\PRIVATE-BETA-TERMS.md
 SetupLogging=yes
 
 [Dirs]
-Name: "{userprofile}\PCW"; Flags: uninsneveruninstall
+Name: "{code:ContextParent}"; Flags: uninsneveruninstall
 
 [Files]
 Source: "{#RuntimeDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -63,9 +63,31 @@ begin
   Result := '"' + Result + '"';
 end;
 
+function ContextParent(Param: String): String;
+begin
+  Result := ExtractFileDir(ContextPage.Values[0]);
+end;
+
 function StateRoot(): String;
 begin
-  Result := ExpandConstant('{localappdata}\AI4Context\PCW\state');
+#ifdef PcwEngineeringBuild
+  Result := ExpandConstant('{param:PCWStateRoot|}');
+#else
+  Result := '';
+#endif
+  if Trim(Result) = '' then
+    Result := ExpandConstant('{localappdata}\AI4Context\PCW\state');
+end;
+
+function HomeDirectory(): String;
+begin
+#ifdef PcwEngineeringBuild
+  Result := ExpandConstant('{param:PCWHomeDirectory|}');
+#else
+  Result := '';
+#endif
+  if Trim(Result) = '' then
+    Result := ExpandConstant('{%USERPROFILE}');
 end;
 
 function SetupHelperPath(): String;
@@ -88,6 +110,7 @@ var
   ExitCode: Integer;
   Parameters: String;
   ResultPath: String;
+  RawResultText: AnsiString;
 begin
   ResultPath := ResultFilePath();
   DeleteFile(ResultPath);
@@ -95,8 +118,10 @@ begin
     ' --result-file ' + Quote(ResultPath);
   Result := Exec(PortableNodePath(), Parameters, ExpandConstant('{app}'), SW_HIDE,
     ewWaitUntilTerminated, ExitCode) and (ExitCode = 0);
-  if FileExists(ResultPath) then
-    LoadStringFromFile(ResultPath, ResultText)
+  if FileExists(ResultPath) then begin
+    LoadStringFromFile(ResultPath, RawResultText);
+    ResultText := UTF8Decode(RawResultText);
+  end
   else
     ResultText := '{"ok":false,"error":{"code":"missing-result","message":"Setup helper returned no result"}}';
   Log('PCW setup helper ' + CommandName + ': ' + ResultText);
@@ -107,7 +132,7 @@ begin
   Result := '--runtime-root ' + Quote(ExpandConstant('{app}')) +
     ' --context-root ' + Quote(ContextPage.Values[0]) +
     ' --state-root ' + Quote(StateRoot()) +
-    ' --home-directory ' + Quote(ExpandConstant('{userprofile}')) +
+    ' --home-directory ' + Quote(HomeDirectory()) +
     ' --registration-name ' + Quote(RegistrationPage.Values[0]);
 end;
 
@@ -123,9 +148,22 @@ begin
 
   ContextPage := CreateInputDirPage(ContextModePage.ID, 'PCW Context location',
     'Choose one PCW context root',
-    'For multiple projects, use separate folders such as PCW\Project-A and PCW\Project-B.');
+    'For multiple projects, use separate folders such as PCW\Project-A and PCW\Project-B.',
+    False, SetupMessage(msgNewFolderName));
   ContextPage.Add('PCW context root:');
-  ContextPage.Values[0] := ExpandConstant('{userprofile}\PCW\My-PCW-Context');
+#ifdef PcwEngineeringBuild
+  ContextPage.Values[0] := ExpandConstant('{param:PCWContext|}');
+#else
+  ContextPage.Values[0] := '';
+#endif
+  if Trim(ContextPage.Values[0]) = '' then
+    ContextPage.Values[0] := ExpandConstant('{%USERPROFILE}\PCW\My-PCW-Context');
+#ifdef PcwEngineeringBuild
+  if CompareText(ExpandConstant('{param:PCWContextMode|new}'), 'existing') = 0 then begin
+    ContextModePage.Values[0] := False;
+    ContextModePage.Values[1] := True;
+  end;
+#endif
 
   ClientPage := CreateInputOptionPage(ContextPage.ID, 'Client integration',
     'Choose optional client setup',
@@ -258,10 +296,15 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   ResultText: String;
   Arguments: String;
+  RemoveOwned: Boolean;
 begin
   if CurUninstallStep <> usUninstall then Exit;
-  if MsgBox('Remove PCW-owned client registrations? Context roots and recovery backups will be preserved.',
-    mbConfirmation, MB_YESNO) = IDYES then begin
+  if UninstallSilent then
+    RemoveOwned := CompareText(ExpandConstant('{param:PCWRemoveOwned|no}'), 'yes') = 0
+  else
+    RemoveOwned := MsgBox('Remove PCW-owned client registrations? Context roots and recovery backups will be preserved.',
+      mbConfirmation, MB_YESNO) = IDYES;
+  if RemoveOwned then begin
     Arguments := '--state-root ' + Quote(StateRoot()) + ' --all-owned';
     if not RunSetupHelper('remove', Arguments, ResultText) then
       MsgBox('Some PCW registrations could not be removed safely. They were left unchanged. Details are in the uninstall log.', mbError, MB_OK);
