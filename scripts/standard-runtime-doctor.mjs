@@ -104,7 +104,8 @@ export async function runDoctor({
   contextRoot,
   mcpProbe = probeMcp,
   dependencyProbe = defaultDependencyProbe,
-  configLoader = defaultConfigLoader
+  configLoader = defaultConfigLoader,
+  integrationCheck
 }) {
   const results = [];
   const check = async (label, operation) => {
@@ -164,6 +165,14 @@ export async function runDoctor({
       runtimeRoot
     );
   });
+  if (integrationCheck) {
+    await check("Client integration", async () => {
+      const result = await integrationCheck();
+      if (!result?.ok) {
+        throw new Error(`Client registration is ${result?.status ?? "unavailable"}`);
+      }
+    });
+  }
   return results;
 }
 

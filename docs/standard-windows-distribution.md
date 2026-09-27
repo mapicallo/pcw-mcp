@@ -502,3 +502,108 @@ launcher tests run only on Windows. Staging stays under ignored artifacts/;
 Node and generated node_modules are not committed. No Codex, Cursor, or Claude
 configuration is read or modified. BLOCK 30B creates no installer, release,
 upload, or publication.
+
+## 34. BLOCK 30C client integration adapters
+
+BLOCK 30C adds an installer-facing integration domain under
+`scripts/standard-integrations/`. It is not part of PCW Core and does not
+change the MCP, `pcw.yml`, release, or runtime contract. Tests inject all
+home, state, context, launcher, and config paths; the implementation does not
+probe the developer's real client configuration.
+
+### Current client matrix
+
+| Client | Status | Current Windows convention | PCW behavior | Reload |
+| --- | --- | --- | --- | --- |
+| Cursor | **SUPPORTED** | Global JSON at `%USERPROFILE%\.cursor\mcp.json`; project JSON at `<project>\.cursor\mcp.json` | Automatic mutation is limited to one uniquely detected or explicitly selected JSON config. PCW uses the global path by default; project configs require explicit selection. | Restart/reload required |
+| OpenAI Codex | **GUIDED** | User TOML at `%USERPROFILE%\.codex\config.toml`; project TOML at `<project>\.codex\config.toml`; `codex mcp add` is also documented | Generates exact TOML/command guidance. PCW does not rewrite user TOML because the current implementation has no comment-preserving TOML writer. | Start a new/reloaded Codex host session |
+| Claude Desktop | **GUIDED** | Current UI uses Settings > Extensions and MCPB; legacy local MCP uses `%APPDATA%\Claude\claude_desktop_config.json` | Generates structured guidance only. MCPB is a later block, and PCW does not automatically mutate the legacy JSON path while the preferred client mechanism is changing. | Restart Claude Desktop |
+| Other MCP clients | **GUIDED** | Client-specific | Emits launcher, argument array, environment, and JSON/TOML snippets without claiming ownership of a config file. | Client-specific |
+
+Sources reviewed for this snapshot: the
+[Codex MCP documentation](https://learn.chatgpt.com/docs/extend/mcp), the
+[Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference),
+the [Cursor MCP documentation](https://prod.cursor.com/docs/mcp), and the
+[Claude Desktop local MCP guidance](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
+These are external conventions, not immutable PCW contracts.
+
+All clients support multiple named servers in their documented MCP model.
+Automatic discovery is conservative: no config means `not-installed`;
+multiple live candidates mean `ambiguous`; malformed or unsupported schemas
+stop without mutation. An explicit config path must be absolute and still
+passes file/schema/link validation.
+
+### Neutral registration contract
+
+The client-neutral input is:
+
+- `registrationName`: trimmed, user-visible, at most 120 characters, with no
+  control characters;
+- `launcherPath`: an absolute path whose final name is exactly `pcw.cmd`;
+- `contextRoot`: an absolute path;
+- `pcwVersion`: installed PCW version;
+- optional string environment entries, excluding PCW-owned variable names.
+
+Adapters serialize only the stable launcher plus structured arguments:
+
+```text
+command: <install>\bin\pcw.cmd
+args: [--context-root, <context-root>]
+```
+
+They never encode `runtime\node.exe`, `core\dist\server.js`, or
+`node_modules`, and never concatenate a shell command. Paths containing
+spaces, ampersands, parentheses, and Unicode remain literal argument values.
+
+### Safe mutation and ownership
+
+A supported mutation is: discover, read, parse, validate, back up, calculate
+one semantic entry change, atomically replace, read back, verify unrelated
+content, then atomically update the ownership ledger. Cursor JSON preserves
+unrelated values and insertion order semantically, but standard JSON has no
+comments and serialization normalizes whitespace. JSONC/comments or malformed
+JSON are rejected instead of stripped.
+
+The injected state root contains `integrations.json` (schema version 1) and
+`backups/<client>/`. Each ledger entry records client, registration name,
+config path, context root, stable launcher, PCW version, timestamps, backup
+reference, and a SHA-256 fingerprint of only the managed entry. It stores no
+environment values or client secrets. Backups contain the complete client
+config and therefore may contain third-party secrets; PCW places them in its
+controlled state area and requests owner-only permissions.
+
+Existing-entry states are:
+
+- `already-configured`: owned entry exactly matches;
+- `update-available`: owned and unchanged since PCW wrote it, but requested
+  launcher/context differs; update requires explicit approval;
+- `conflict`: the name exists without matching PCW ownership;
+- `drift`: the ledger owns the name but the user changed the entry;
+- `missing`: no current entry.
+
+Repeated apply is idempotent. Multiple names may point to different contexts
+through one launcher. Removal requires matching ownership and fingerprint,
+deletes only that entry, and preserves unrelated/current config. It never
+deletes a context and never restores an old whole-file backup during normal
+uninstall.
+
+If ledger persistence fails after config mutation, PCW attempts a semantic
+rollback of only its entry. If current state no longer makes that rollback
+safe, the result is `recovery-required` with the backup location. This does
+not claim transactionality across independent filesystems.
+
+### Dry run, Doctor, and security boundary
+
+`planIntegration` is the dry-run API and performs no writes.
+`inspectOwnedIntegration` can be supplied as the optional
+`Client integration` check in Standard Doctor. Client integration is never
+required for Core runtime health.
+
+Mutations reject non-regular config files, direct config/parent links, invalid
+registration names, missing/link launchers, and missing/link context roots.
+Atomic writes use a same-target temporary file through `write-file-atomic`.
+Residual limitations remain: ancestor junctions above the immediate config
+directory, Windows ACL quality, and TOCTOU between validation and replacement
+cannot be eliminated by this user-space adapter. Unexpected schema evolution,
+ambiguous paths, parse errors, conflicts, and drift fail closed. No process is
+killed or restarted.

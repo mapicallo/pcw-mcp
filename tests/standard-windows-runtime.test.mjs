@@ -180,9 +180,11 @@ test("doctor reports healthy runtime and leaves an existing context unchanged", 
       configLoader: async (_runtime, context) => {
         const yaml = await readFile(join(context, "pcw.yml"), "utf8");
         if (!yaml.includes("version: 1")) throw new Error("invalid config");
-      }
+      },
+      integrationCheck: async () => ({ ok: true, status: "already-configured" })
     });
     assert.equal(results.every(({ ok }) => ok), true);
+    assert.equal(results.find(({ label }) => label === "Client integration")?.ok, true);
     assert.deepEqual(await readFile(join(contextRoot, "pcw.yml")), before);
   }));
 
