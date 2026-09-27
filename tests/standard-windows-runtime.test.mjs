@@ -3,6 +3,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   access,
+  chmod,
   copyFile,
   mkdir,
   mkdtemp,
@@ -100,6 +101,7 @@ process.stdin.on("data", chunk => {
     const nodeRuntime = join(root, "node-input");
     await mkdir(nodeRuntime);
     await copyFile(process.execPath, join(nodeRuntime, "node.exe"));
+    if (process.platform !== "win32") await chmod(join(nodeRuntime, "node.exe"), 0o755);
     const installDependencies = async ({ coreDirectory }) => {
       const moduleRoot = join(coreDirectory, "node_modules", "synthetic-runtime-dependency");
       await mkdir(moduleRoot, { recursive: true });
