@@ -27,6 +27,8 @@ const execFileAsync = promisify(execFile);
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const npmCli = process.env.npm_execpath;
 const doctorSource = join(repositoryRoot, "scripts", "standard-runtime-doctor.mjs");
+const setupSource = join(repositoryRoot, "scripts", "standard-setup.mjs");
+const integrationsSource = join(repositoryRoot, "scripts", "standard-integrations");
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 async function createFixture(run) {
@@ -49,6 +51,16 @@ async function createFixture(run) {
   try {
     await mkdir(join(source, "dist"), { recursive: true });
     await writeFile(join(source, "package.json"), JSON.stringify(packageJson));
+    await mkdir(join(source, "dist", "config"), { recursive: true });
+    await writeFile(join(source, "dist", "config", "pcw-config.js"), `
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+export async function loadPcwConfig(root) {
+  const text = await readFile(join(root, "pcw.yml"), "utf8");
+  if (!text.includes("version:")) throw new Error("invalid synthetic config");
+  return { config: {} };
+}
+`);
     await writeFile(join(source, "dist", "server.js"), `
 import { appendFileSync } from "node:fs";
 if (process.env.PCW_TEST_ARGS_FILE) {
@@ -91,6 +103,10 @@ process.stdin.on("data", chunk => {
       const moduleRoot = join(coreDirectory, "node_modules", "synthetic-runtime-dependency");
       await mkdir(moduleRoot, { recursive: true });
       await writeFile(join(moduleRoot, "package.json"), '{"name":"synthetic-runtime-dependency","version":"1.0.0"}');
+      const atomicRoot = join(coreDirectory, "node_modules", "write-file-atomic");
+      await mkdir(atomicRoot, { recursive: true });
+      await writeFile(join(atomicRoot, "package.json"), '{"name":"write-file-atomic","version":"0.0.0","type":"module","exports":"./index.js"}');
+      await writeFile(join(atomicRoot, "index.js"), 'import { writeFile } from "node:fs/promises"; export default writeFile;');
     };
     const verifyDependencies = async ({ coreDirectory }) => {
       await access(join(coreDirectory, "node_modules", "synthetic-runtime-dependency", "package.json"));
@@ -109,6 +125,8 @@ function buildOptions(fixture, output) {
     output,
     npmCli,
     doctorSource,
+    setupSource,
+    integrationsSource,
     expectedNodeVersion: process.version,
     installDependencies: fixture.installDependencies,
     verifyDependencies: fixture.verifyDependencies
@@ -147,6 +165,19 @@ test("runtime preserves canonical Core bytes and deterministic provenance", () =
     assert.equal(metadata.core.sha256, hash(await readFile(fixture.coreTgz)));
     assert.equal(metadata.core.packageLockSha256, hash(await readFile(fixture.packageLock)));
     assert.deepEqual(await readdir(outputA), ["bin", "core", "metadata", "package", "runtime", "tools"]);
+    await access(join(outputA, "bin", "pcw-standard-setup.cmd"));
+    await access(join(outputA, "core", "standard-tools", "standard-runtime-doctor.mjs"));
+    await access(join(outputA, "core", "standard-tools", "standard-setup.mjs"));
+    await access(join(outputA, "core", "standard-tools", "standard-integrations", "index.mjs"));
+    const contextRoot = join(fixture.root, "helper context");
+    await mkdir(contextRoot);
+    await writeFile(join(contextRoot, "pcw.yml"), "version: 1\nworkstreams: {}\n");
+    const helper = await execFileAsync(join(outputA, "runtime", "node.exe"), [
+      join(outputA, "core", "standard-tools", "standard-setup.mjs"),
+      "validate-context", "--runtime-root", outputA, "--context-root", contextRoot
+    ]);
+    assert.equal(helper.stderr, "");
+    assert.equal(JSON.parse(helper.stdout).status, "valid");
   }));
 
 test("incompatible package lock fails without replacing an existing runtime", () =>

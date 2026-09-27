@@ -19,10 +19,48 @@ import { unzipSync } from "fflate";
 
 export const STANDARD_RUNTIME_SCHEMA_VERSION = 1;
 
-const WINDOWS_LAUNCHER = `@echo off\r\nsetlocal\r\nset "PCW_HOME=%~dp0.."\r\nset "PCW_NODE=%PCW_HOME%\\runtime\\node.exe"\r\nif not exist "%PCW_NODE%" (\r\n  >&2 echo PCW runtime error: portable node.exe is missing.\r\n  exit /b 1\r\n)\r\n"%PCW_NODE%" "%PCW_HOME%\\core\\dist\\server.js" %*\r\nexit /b %ERRORLEVEL%\r\n`;
+function windowsBatch(lines) {
+  return `${lines.join("\r\n")}\r\n`;
+}
 
-const WINDOWS_DOCTOR_LAUNCHER = `@echo off\r\nsetlocal\r\nset "PCW_HOME=%~dp0.."\r\nset "PCW_NODE=%PCW_HOME%\\runtime\\node.exe"\r\nif not exist "%PCW_NODE%" (\r\n  >&2 echo PCW Doctor error: portable node.exe is missing.\r\n  exit /b 1\r\n)\r\n"%PCW_NODE%" "%PCW_HOME%\\tools\\doctor.mjs" %*\r\nexit /b %ERRORLEVEL%\r\n`;
+const WINDOWS_LAUNCHER = windowsBatch([
+  "@echo off",
+  "setlocal",
+  'set "PCW_HOME=%~dp0.."',
+  'set "PCW_NODE=%PCW_HOME%\\runtime\\node.exe"',
+  'if not exist "%PCW_NODE%" (',
+  "  >&2 echo PCW runtime error: portable node.exe is missing.",
+  "  exit /b 1",
+  ")",
+  '"%PCW_NODE%" "%PCW_HOME%\\core\\dist\\server.js" %*',
+  "exit /b %ERRORLEVEL%"
+]);
 
+const WINDOWS_SETUP_LAUNCHER = windowsBatch([
+  "@echo off",
+  "setlocal",
+  'set "PCW_HOME=%~dp0.."',
+  'set "PCW_NODE=%PCW_HOME%\\runtime\\node.exe"',
+  'if not exist "%PCW_NODE%" (',
+  "  >&2 echo PCW Setup error: portable node.exe is missing.",
+  "  exit /b 1",
+  ")",
+  '"%PCW_NODE%" "%PCW_HOME%\\core\\standard-tools\\standard-setup.mjs" %*',
+  "exit /b %ERRORLEVEL%"
+]);
+
+const WINDOWS_DOCTOR_LAUNCHER = windowsBatch([
+  "@echo off",
+  "setlocal",
+  'set "PCW_HOME=%~dp0.."',
+  'set "PCW_NODE=%PCW_HOME%\\runtime\\node.exe"',
+  'if not exist "%PCW_NODE%" (',
+  "  >&2 echo PCW Doctor error: portable node.exe is missing.",
+  "  exit /b 1",
+  ")",
+  '"%PCW_NODE%" "%PCW_HOME%\\tools\\doctor.mjs" %*',
+  "exit /b %ERRORLEVEL%"
+]);
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
@@ -212,15 +250,17 @@ export async function assembleStandardWindowsRuntime({
   npmCli,
   expectedNodeVersion,
   doctorSource,
+  setupSource,
+  integrationsSource,
   installDependencies = defaultInstallDependencies,
   verifyDependencies = defaultVerifyDependencies
 }) {
-  for (const [name, value] of Object.entries({ coreTgz, nodeRuntime, output, packageLock, npmCli, doctorSource })) {
+  for (const [name, value] of Object.entries({ coreTgz, nodeRuntime, output, packageLock, npmCli, doctorSource, setupSource, integrationsSource })) {
     if (!value) throw new Error(`${name} is required`);
   }
   const outputPath = resolve(output);
   if (dirname(outputPath) === outputPath) throw new Error("Standard runtime output cannot be a filesystem root");
-  for (const input of [coreTgz, nodeRuntime, packageLock, npmCli, doctorSource]) {
+  for (const input of [coreTgz, nodeRuntime, packageLock, npmCli, doctorSource, setupSource, integrationsSource]) {
     if (isSameOrInside(outputPath, resolve(input))) {
       throw new Error("Standard runtime output cannot contain a build input");
     }
@@ -256,9 +296,14 @@ export async function assembleStandardWindowsRuntime({
 
     await mkdir(join(stage, "bin"), { recursive: true });
     await mkdir(join(stage, "tools"), { recursive: true });
+    await mkdir(join(stage, "core", "standard-tools"), { recursive: true });
     await writeFile(join(stage, "bin", "pcw.cmd"), WINDOWS_LAUNCHER, "utf8");
     await writeFile(join(stage, "bin", "pcw-doctor.cmd"), WINDOWS_DOCTOR_LAUNCHER, "utf8");
+    await writeFile(join(stage, "bin", "pcw-standard-setup.cmd"), WINDOWS_SETUP_LAUNCHER, "utf8");
     await copyFile(doctorSource, join(stage, "tools", "doctor.mjs"));
+    await copyFile(doctorSource, join(stage, "core", "standard-tools", "standard-runtime-doctor.mjs"));
+    await copyFile(setupSource, join(stage, "core", "standard-tools", "standard-setup.mjs"));
+    await cp(integrationsSource, join(stage, "core", "standard-tools", "standard-integrations"), { recursive: true });
 
     const metadata = {
       schemaVersion: STANDARD_RUNTIME_SCHEMA_VERSION,

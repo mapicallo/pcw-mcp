@@ -11,7 +11,9 @@ try {
     ...options,
     packageLock: options.packageLock ?? join(repositoryRoot, "package-lock.json"),
     npmCli: options.npmCli ?? process.env.npm_execpath,
-    doctorSource: join(repositoryRoot, "scripts", "standard-runtime-doctor.mjs")
+    doctorSource: join(repositoryRoot, "scripts", "standard-runtime-doctor.mjs"),
+    setupSource: join(repositoryRoot, "scripts", "standard-setup.mjs"),
+    integrationsSource: join(repositoryRoot, "scripts", "standard-integrations")
   });
   process.stdout.write(`${result.output}\n`);
 } catch (error) {

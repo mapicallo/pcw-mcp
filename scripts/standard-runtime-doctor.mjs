@@ -93,7 +93,7 @@ async function defaultDependencyProbe(nodeExecutable, coreDirectory) {
   });
 }
 
-async function defaultConfigLoader(runtimeRoot, contextRoot) {
+export async function loadRuntimeConfig(runtimeRoot, contextRoot) {
   const modulePath = join(runtimeRoot, "core", "dist", "config", "pcw-config.js");
   const { loadPcwConfig } = await import(pathToFileURL(modulePath).href);
   await loadPcwConfig(contextRoot);
@@ -104,7 +104,7 @@ export async function runDoctor({
   contextRoot,
   mcpProbe = probeMcp,
   dependencyProbe = defaultDependencyProbe,
-  configLoader = defaultConfigLoader,
+  configLoader = loadRuntimeConfig,
   integrationCheck
 }) {
   const results = [];

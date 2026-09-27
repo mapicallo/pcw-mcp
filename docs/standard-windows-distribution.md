@@ -1,6 +1,6 @@
 # Standard Windows Distribution Architecture and Runtime (BLOCK 30A/30B)
 
-Status: **runtime staging implementation validated**. Not an installer.
+Status: **runtime staging, client adapters, and engineering installer skeleton validated**. Not a release installer.
 Software baseline: PCW Core `0.3.0-beta.1` (`pcw-mcp`).
 Branch inspected: `v0.3-distribution`.
 
@@ -607,3 +607,140 @@ directory, Windows ACL quality, and TOCTOU between validation and replacement
 cannot be eliminated by this user-space adapter. Unexpected schema evolution,
 ambiguous paths, parse errors, conflicts, and drift fail closed. No process is
 killed or restarted.
+
+## 35. BLOCK 30D engineering installer prototype
+
+BLOCK 30D adds an unsigned Inno Setup skeleton around the prebuilt Standard
+runtime. It is engineering-only and is deliberately excluded from release
+manifests, checksums, GitHub publication, Vercel, and AI4Context downloads.
+The prototype output name is
+`PCW-Setup-0.3.0-beta.1-prototype.exe` so it cannot be mistaken for a frozen
+release artifact.
+
+### Toolchain and build input
+
+The installer build helper pins **Inno Setup 6.4.3**. The compiler is an
+explicit `--iscc` input and its reported version must match exactly. The build
+also requires explicit `--runtime-dir` and `--output-dir` paths:
+
+```text
+npm run standard:installer -- \
+  --runtime-dir <prebuilt-standard-runtime> \
+  --output-dir <prototype-output> \
+  --iscc <absolute-path-to-6.4.3-ISCC.exe>
+```
+
+The installer build reads `metadata/standard-runtime.json`, validates the
+Windows x64 identity, and embeds the complete runtime directory without
+changing it. It does not build Core, run npm, download Node, resolve
+production dependencies, or rewrite the retained canonical TGZ. Generated
+installer metadata records only a schema version, software version, Core TGZ
+SHA-256, runtime schema, Windows/x64 target, prototype status, and unsigned
+status. It records no build path, username, hostname, random ID, or implicit
+wall-clock time.
+
+Inno Setup was not installed on the BLOCK 30D development machine. Static
+validation and a synthetic compiler contract test passed; no real EXE was
+compiled or installed in this block. The first executable spike must use the
+pinned 6.4.3 compiler before this prototype can advance.
+
+### Install and state locations
+
+The default no-admin install location is:
+
+```text
+%LOCALAPPDATA%\Programs\AI4Context\PCW
+```
+
+Mutable integration ownership and recovery state remains separate:
+
+```text
+%LOCALAPPDATA%\AI4Context\PCW\state
+```
+
+The installer does not modify user or system `PATH`. MCP registrations refer
+only to `<install>\bin\pcw.cmd`. There is no generic GUI launch shortcut;
+PCW is an MCP stdio server. Doctor remains a separate command and never emits
+human diagnostics onto MCP stdout.
+
+### Wizard and helper contract
+
+The prototype wizard follows: Welcome, install location, existing context,
+client integration, registration name, review, installing, verification, and
+finish. Normal pages do not expose TGZ, npm, `node_modules`, package locks, or
+stdio details.
+
+The context page accepts only an existing context containing `pcw.yml`. This
+is a lightweight UI preflight, not schema validation. After runtime copy and
+before finish, the installed helper loads the configuration through compiled
+Core `loadPcwConfig`; it does not duplicate the Zod schema. The page states
+that new-context creation is not enabled in this prototype.
+
+The runtime now includes `core/standard-tools/standard-setup.mjs` and the 30C integration
+modules. Its machine commands are:
+
+- `validate-context`: validate an existing root through Core;
+- `detect-clients`: inspect only explicitly supplied/injected client roots;
+- `plan`: return a dry-run integration plan with zero mutation;
+- `apply`: delegate supported mutation to the 30C service;
+- `remove`: delegate one removal, or semantic removal of all ledger-owned
+  registrations for uninstall;
+- `doctor`: delegate runtime/context/MCP checks to the 30B Doctor service.
+
+Success is one JSON object on stdout. Failures are one JSON object on stderr
+and a nonzero exit status. An optional explicit `--result-file` lets Inno read
+the same machine result without parsing logs. Paths remain separate arguments;
+the helper never accepts a concatenated shell command.
+
+Cursor is the only automatic adapter. Planning occurs before apply, and the
+30C service owns backup, atomic mutation, verification, collision/drift
+handling, ledger updates, and rollback. Codex returns generated guided TOML
+and command information without editing `config.toml`. Claude Desktop returns
+guided/MCPB-planned information without changing legacy JSON.
+
+### Transaction, reinstall, and uninstall
+
+The orchestration order is: copy runtime, validate installed runtime/context,
+plan integration, apply selected supported integration, verify, run Doctor,
+and finish. Runtime installation may remain when integration fails; the error
+is shown, the context is never removed, and 30C rollback/recovery semantics
+remain authoritative. This is not represented as one cross-filesystem atomic
+transaction.
+
+A same-version reinstall replaces installer-owned runtime files while leaving
+context roots and the external state directory untouched. Reapplying an
+unchanged owned registration is idempotent; changed owned registrations are
+planned and require the installer-selected update path. No online updater is
+implemented.
+
+During uninstall, the user is explicitly asked whether PCW-owned client
+registrations should be removed. Selection calls `remove --all-owned`, which
+uses the 30C ledger and semantic removal. Conflict, drift, and recovery-required
+states fail closed. Whole-file backups are never restored as normal uninstall.
+The runtime is removed by Inno; contexts, integration state, and recovery
+backups are preserved. This allows diagnosis and manual recovery.
+
+### Logging and security boundary
+
+Inno setup logging is enabled. Helper output contains status, selected paths,
+version, and controlled error details, but never serializes third-party config
+contents, environment secrets, tokens, or credentials. Client configuration
+and state locations are injected in automated tests; no developer Codex,
+Cursor, or Claude configuration is read or written.
+
+The prototype is unsigned, so Windows SmartScreen warnings are expected.
+Signing and post-signature artifact hashing remain release-pipeline work.
+No installer output is added to the release artifact set in BLOCK 30D.
+
+### Blank-root gate
+
+The installer architecture is technically ready for an executable engineering
+spike against existing valid PCW contexts, subject to compilation with pinned
+Inno Setup 6.4.3. It is **not ready for the real User1 Standard pilot** because
+Core has no approved new-context initialization contract.
+
+The next bounded block should add and test one official Core-owned
+initialization API/contract that creates a minimal valid context without an
+implicit workstream. Only after that contract is approved should the installer
+offer new-root creation. The Inno script must continue to call the Core helper
+rather than generating `pcw.yml` itself.
