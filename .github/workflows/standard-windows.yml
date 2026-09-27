@@ -1,0 +1,105 @@
+name: standard-windows
+
+on:
+  push:
+    branches:
+      - v0.3-distribution
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      NODE_VERSION: 22.23.3
+      NODE_ZIP_SHA256: 2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71
+      INNO_VERSION: 6.4.3
+      INNO_INSTALLER_SHA256: f3c42116542c4cc57263c5ba6c4feabfc49fe771f2f98a79d2f7628b8762723b
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: Download and verify pinned build inputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $inputs = Join-Path $env:RUNNER_TEMP 'pcw-build-inputs'
+          New-Item -ItemType Directory -Force -Path $inputs | Out-Null
+          $nodeZip = Join-Path $inputs "node-v$env:NODE_VERSION-win-x64.zip"
+          $innoInstaller = Join-Path $inputs "innosetup-$env:INNO_VERSION.exe"
+          Invoke-WebRequest "https://nodejs.org/dist/v$env:NODE_VERSION/node-v$env:NODE_VERSION-win-x64.zip" -OutFile $nodeZip
+          Invoke-WebRequest "https://github.com/jrsoftware/issrc/releases/download/is-6_4_3/innosetup-$env:INNO_VERSION.exe" -OutFile $innoInstaller
+          if ((Get-FileHash -Algorithm SHA256 $nodeZip).Hash.ToLowerInvariant() -ne $env:NODE_ZIP_SHA256) {
+            throw 'Portable Node SHA-256 mismatch'
+          }
+          if ((Get-FileHash -Algorithm SHA256 $innoInstaller).Hash.ToLowerInvariant() -ne $env:INNO_INSTALLER_SHA256) {
+            throw 'Inno Setup installer SHA-256 mismatch'
+          }
+      - name: Install pinned Inno Setup compiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $inputs = Join-Path $env:RUNNER_TEMP 'pcw-build-inputs'
+          $innoRoot = Join-Path $env:RUNNER_TEMP 'Inno Setup 6.4.3'
+          $installer = Join-Path $inputs "innosetup-$env:INNO_VERSION.exe"
+          $process = Start-Process $installer -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
+            "/DIR=`"$innoRoot`""
+          ) -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Inno Setup installation failed: $($process.ExitCode)" }
+          if (-not (Test-Path (Join-Path $innoRoot 'ISCC.exe'))) { throw 'ISCC.exe was not installed' }
+      - name: Build Standard runtime and real engineering installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'pcw-standard-ci'
+          $pack = Join-Path $root 'pack'
+          $runtime = Join-Path $root 'runtime'
+          $installerOutput = Join-Path $root 'installer'
+          New-Item -ItemType Directory -Force -Path $pack | Out-Null
+          $packResult = npm pack --json --pack-destination $pack | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'npm pack failed' }
+          $coreTgz = Join-Path $pack $packResult[0].filename
+          npm run standard:runtime -- --core-tgz $coreTgz --node-runtime (Join-Path $env:RUNNER_TEMP "pcw-build-inputs\node-v$env:NODE_VERSION-win-x64.zip") --output $runtime --expected-node-version $env:NODE_VERSION
+          if ($LASTEXITCODE -ne 0) { throw 'Standard runtime build failed' }
+          npm run standard:installer -- --runtime-dir $runtime --output-dir $installerOutput --iscc (Join-Path $env:RUNNER_TEMP 'Inno Setup 6.4.3\ISCC.exe') --mode engineering
+          if ($LASTEXITCODE -ne 0) { throw 'Standard installer build failed' }
+      - name: Exercise silent install, Doctor and uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'pcw-standard-ci'
+          $installer = (Get-ChildItem (Join-Path $root 'installer') -Filter 'PCW-Setup-*-prototype.exe' -File -ErrorAction Stop).FullName
+          $installRoot = Join-Path $root 'installed'
+          $contextRoot = Join-Path $root 'contexts\Proyecto Ágil & QA (2026)\日本語'
+          $stateRoot = Join-Path $root 'state'
+          $homeRoot = Join-Path $root 'home'
+          $setup = Start-Process $installer -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
+            "/DIR=`"$installRoot`"",
+            "/PCWContext=`"$contextRoot`"",
+            '/PCWContextMode=new',
+            "/PCWStateRoot=`"$stateRoot`"",
+            "/PCWHomeDirectory=`"$homeRoot`""
+          ) -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "PCW install failed: $($setup.ExitCode)" }
+          & (Join-Path $installRoot 'bin\pcw-doctor.cmd') --context-root $contextRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Doctor failed' }
+          if (-not (Test-Path (Join-Path $contextRoot 'pcw.yml'))) { throw 'Synthetic context was not initialized' }
+          $uninstaller = Join-Path $installRoot 'unins000.exe'
+          $uninstall = Start-Process $uninstaller -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          ) -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "PCW uninstall failed: $($uninstall.ExitCode)" }
+          if (-not (Test-Path (Join-Path $contextRoot 'pcw.yml'))) { throw 'Uninstall removed the PCW context' }
+          if (Test-Path (Join-Path $installRoot 'bin\pcw.cmd')) { throw 'Uninstall left the PCW runtime installed' }
+
