@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadRuntimeConfig, runDoctor } from "./standard-runtime-doctor.mjs";
 import {
   CLIENT_IDS,
+  INTEGRATION_LEDGER_SCHEMA_VERSION,
   IntegrationError,
   applyIntegration,
   clientAdapters,
@@ -162,7 +163,8 @@ async function readOwnedRegistrations(stateRoot) {
     if (error.code === "ENOENT") return [];
     throw error;
   }
-  if (ledger?.schemaVersion !== 1 || !Array.isArray(ledger.registrations)) {
+  if (![1, INTEGRATION_LEDGER_SCHEMA_VERSION].includes(ledger?.schemaVersion) ||
+      !Array.isArray(ledger.registrations)) {
     throw new SetupError("invalid-ledger", "PCW integration ownership ledger is invalid");
   }
   return ledger.registrations;

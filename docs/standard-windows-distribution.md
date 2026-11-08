@@ -1,9 +1,9 @@
 # Standard Windows Distribution Architecture and Runtime (BLOCK 30A/30B)
 
-Status: **Standard Windows release candidate validated but not tagged or published**.
-Candidate identity: PCW Core `0.3.0-beta.2` (`pcw-mcp`).
-Frozen release baseline: `v0.3.0-beta.1`; candidate outputs do not replace that release.
-Branch inspected: `v0.3-distribution`.
+Status: **PCW 0.3.0-beta.3 Cursor integration hardening in development; not released**.
+Development identity: PCW Core `0.3.0-beta.3-dev.0` (`pcw-mcp`).
+Frozen release baseline: `v0.3.0-beta.2`; development outputs do not replace that release.
+Branch inspected: `v0.3-beta.3-cursor-hardening`.
 
 Related prior decision: [distribution-architecture.md](distribution-architecture.md)
 (BLOCK 20). This document specializes the **Standard User / Windows-first**
@@ -528,10 +528,13 @@ the [Cursor MCP documentation](https://prod.cursor.com/docs/mcp), and the
 These are external conventions, not immutable PCW contracts.
 
 All clients support multiple named servers in their documented MCP model.
-Automatic discovery is conservative: no config means `not-installed`;
-multiple live candidates mean `ambiguous`; malformed or unsupported schemas
-stop without mutation. An explicit config path must be absolute and still
-passes file/schema/link validation.
+Automatic discovery is conservative. For Cursor, an injected/validated
+`%LOCALAPPDATA%\Programs\Cursor\Cursor.exe` marker plus an absent canonical
+global config produces `cursor-config-missing`, `changeRequired=true`, and
+`willCreateConfig=true`; absence of both client and config remains
+`not-installed`. Multiple live candidates mean `ambiguous`; malformed or
+unsupported schemas stop without mutation. An explicit config path must be
+absolute and still passes file/schema/link validation.
 
 ### Neutral registration contract
 
@@ -564,13 +567,18 @@ unrelated values and insertion order semantically, but standard JSON has no
 comments and serialization normalizes whitespace. JSONC/comments or malformed
 JSON are rejected instead of stripped.
 
-The injected state root contains `integrations.json` (schema version 1) and
+The injected state root contains `integrations.json` (schema version 2) and
 `backups/<client>/`. Each ledger entry records client, registration name,
 config path, context root, stable launcher, PCW version, timestamps, backup
-reference, and a SHA-256 fingerprint of only the managed entry. It stores no
-environment values or client secrets. Backups contain the complete client
-config and therefore may contain third-party secrets; PCW places them in its
-controlled state area and requests owner-only permissions.
+reference, and a SHA-256 fingerprint of only the managed entry. Version 2 also
+records `configOrigin` as `pcw-created` or `pre-existing`; only `pcw-created`
+entries carry `createdConfigSha256`. Version 1 remains readable and is treated
+conservatively as `pre-existing`; reads do not rewrite it, while a later valid
+mutation may persist version 2. Future unsupported schema versions fail
+closed. The ledger stores no environment values or client secrets. Backups
+contain the complete client config and therefore may contain third-party
+secrets; PCW places them in its controlled state area and requests owner-only
+permissions.
 
 Existing-entry states are:
 
@@ -581,16 +589,25 @@ Existing-entry states are:
 - `drift`: the ledger owns the name but the user changed the entry;
 - `missing`: no current entry.
 
-Repeated apply is idempotent. Multiple names may point to different contexts
-through one launcher. Removal requires matching ownership and fingerprint,
-deletes only that entry, and preserves unrelated/current config. It never
-deletes a context and never restores an old whole-file backup during normal
-uninstall.
+Repeated apply is idempotent. If Cursor is installed but its canonical global
+config is absent, apply creates `mcp.json` exclusively (`wx`) and refuses to
+clobber a file that appears concurrently. Multiple names may point to different
+contexts through one launcher. Removal requires matching ownership and
+fingerprint and normally deletes only that entry. A file originally created by
+PCW returns to the absent state only when the removed registration is the last
+MCP server and no unrelated top-level data remains. Pre-existing files, and
+PCW-created files later adopted with other MCP servers or user data, are
+preserved. Removal never deletes a context and never restores an old whole-file
+backup during normal uninstall.
 
-If ledger persistence fails after config mutation, PCW attempts a semantic
-rollback of only its entry. If current state no longer makes that rollback
-safe, the result is `recovery-required` with the backup location. This does
-not claim transactionality across independent filesystems.
+If ledger persistence fails after config mutation, PCW attempts a safe
+rollback. Failed cold-start ownership persistence removes the new config only
+when its bytes, type, path, and identity still match the PCW-created file. A
+failed ledger update after remove-to-absent restores exact pre-remove bytes
+only through exclusive creation while the path remains absent. Concurrently
+reappearing objects are never overwritten. If current state no longer makes
+rollback safe, the result is `recovery-required` with the backup location.
+This does not claim transactionality across independent filesystems.
 
 ### Dry run, Doctor, and security boundary
 
@@ -602,11 +619,16 @@ required for Core runtime health.
 Mutations reject non-regular config files, direct config/parent links, invalid
 registration names, missing/link launchers, and missing/link context roots.
 Atomic writes use a same-target temporary file through `write-file-atomic`.
-Residual limitations remain: ancestor junctions above the immediate config
-directory, Windows ACL quality, and TOCTOU between validation and replacement
-cannot be eliminated by this user-space adapter. Unexpected schema evolution,
-ambiguous paths, parse errors, conflicts, and drift fail closed. No process is
-killed or restarted.
+Remove-to-absent revalidates the target with `lstat` immediately before unlink
+and compares `dev`, `ino`, `size`, and `mtimeMs`; a replacement object is not
+unlinked. Restore is no-clobber and exclusive. Residual limitations remain:
+ancestor junctions above the immediate config directory, Windows ACL quality,
+and a narrow race between the final `lstat` and pathname-based `unlink`. Node's
+portable APIs do not provide an atomic compare-and-delete primitive, so PCW
+does not claim one. Unexpected schema evolution, ambiguous paths, parse errors,
+conflicts, and drift fail closed. No process is killed or restarted. Real
+symlink race tests were skipped on the beta.3 development host because Windows
+returned `EPERM`; directory and regular-file replacement paths were exercised.
 
 ## 35. BLOCK 30D engineering installer prototype
 

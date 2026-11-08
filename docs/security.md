@@ -62,6 +62,37 @@ SHA comparison provides optimistic stale-write detection, not a filesystem lock 
 
 The server therefore does not claim protection against a malicious local user who can mutate the context tree concurrently.
 
+## Standard Cursor Integration
+
+The Standard Windows Cursor adapter is outside the MCP/Core filesystem surface,
+but it mutates a user client configuration and therefore has its own guarded
+boundary. Cold-start creation of the canonical global `mcp.json` uses exclusive
+`wx` creation. Existing configs are backed up before mutation, ownership is
+tracked by registration fingerprint, and unowned collisions or drift fail
+closed.
+
+The version 2 ownership ledger records whether the config was `pcw-created` or
+`pre-existing`. Version 1 ledgers are read conservatively as `pre-existing`, so
+legacy state can never authorize whole-file deletion by inference. Unsupported
+future ledger schemas are rejected. A PCW-created config is removed completely
+only when no other MCP servers or unrelated top-level fields remain;
+pre-existing or subsequently adopted files are preserved.
+
+Before remove-to-absent, PCW verifies the exact backup, revalidates a regular
+non-link target, and compares filesystem identity (`dev`, `ino`, `size`, and
+`mtimeMs`) immediately before unlink. Ledger failure after deletion restores
+the prior bytes only by exclusive creation while the path remains absent. A
+concurrently reappearing file, directory, or link is not overwritten. Recovery
+failures retain the backup and return `recovery-required`.
+
+This does not eliminate every local race. A narrow interval remains between the
+last `lstat` and pathname-based `unlink`; Node's portable filesystem API does
+not provide atomic compare-and-delete by handle. Real symlink replacement tests
+were skipped on the current Windows development host because symlink creation
+returned `EPERM`, while directory and same-bytes regular-file replacements were
+tested. PCW does not claim zero TOCTOU risk or protection against a malicious
+local actor with concurrent write access.
+
 ## Sensitive Context
 
 Real project contexts may contain private documents, internal decisions, customer data, credentials, or other sensitive information.

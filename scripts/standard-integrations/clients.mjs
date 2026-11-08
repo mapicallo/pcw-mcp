@@ -82,12 +82,25 @@ export const cursorAdapter = Object.freeze({
   getCandidates({ homeDirectory, candidateConfigPaths = [] }) {
     return [...(homeDirectory ? [join(homeDirectory, ".cursor", "mcp.json")] : []), ...candidateConfigPaths];
   },
-  discover(options) {
-    return discoverSingleJsonConfig({
+  async discover(options) {
+    const detection = await discoverSingleJsonConfig({
       clientId: CLIENT_IDS.CURSOR,
       candidates: this.getCandidates(options),
       explicitConfigPath: options.explicitConfigPath
     });
+    if (detection.status !== "not-installed" || !options.homeDirectory || !options.localAppData) {
+      return detection;
+    }
+    const cursorExecutable = join(options.localAppData, "Programs", "Cursor", "Cursor.exe");
+    if (!await exists(cursorExecutable)) return detection;
+    const executableInfo = await lstat(cursorExecutable);
+    if (!executableInfo.isFile() || executableInfo.isSymbolicLink()) return detection;
+    return {
+      ...detection,
+      status: "cursor-config-missing",
+      configPath: resolve(join(options.homeDirectory, ".cursor", "mcp.json")),
+      willCreateConfig: true
+    };
   },
   parse: parseJsonClientConfig,
   serialize: serializeJsonClientConfig

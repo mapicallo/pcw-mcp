@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { basename, isAbsolute, resolve } from "node:path";
 
-export const INTEGRATION_LEDGER_SCHEMA_VERSION = 1;
+export const INTEGRATION_LEDGER_SCHEMA_VERSION = 2;
 export const CLIENT_IDS = Object.freeze({
   CURSOR: "cursor",
   CODEX: "codex",
