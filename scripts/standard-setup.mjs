@@ -30,6 +30,7 @@ const optionNames = new Map([
   ["--context-root", "contextRoot"],
   ["--state-root", "stateRoot"],
   ["--home-directory", "homeDirectory"],
+  ["--local-app-data", "localAppData"],
   ["--registration-name", "registrationName"],
   ["--client", "clientId"],
   ["--config-path", "explicitConfigPath"],
@@ -117,7 +118,17 @@ async function validateContext(runtimeRoot, contextRoot, configLoader = loadRunt
   return { ok: true, status: "valid", contextRoot };
 }
 
-async function registrationOptions(options) {
+function localAppDataPath(options, environment) {
+  if (options.localAppData !== undefined) return absolute(options, "localAppData");
+  const value = environment.LOCALAPPDATA;
+  if (typeof value !== "string" || value.trim().length === 0) return undefined;
+  if (!isAbsolute(value)) {
+    throw new SetupError("invalid-path", "LOCALAPPDATA must be an absolute path");
+  }
+  return resolve(value);
+}
+
+async function registrationOptions(options, environment = process.env) {
   const runtimeRoot = absolute(options, "runtimeRoot");
   const metadata = await runtimeIdentity(runtimeRoot);
   const registration = createPcwRegistration({
@@ -131,6 +142,7 @@ async function registrationOptions(options) {
     metadata,
     clientId: required(options, "clientId"),
     homeDirectory: options.homeDirectory ? absolute(options, "homeDirectory") : undefined,
+    localAppData: localAppDataPath(options, environment),
     explicitConfigPath: options.explicitConfigPath ? absolute(options, "explicitConfigPath") : undefined,
     stateRoot: absolute(options, "stateRoot"),
     registration,
@@ -222,7 +234,7 @@ export async function runStandardSetupCommand(command, options = {}, dependencie
   if (command === "doctor") {
     let integrationCheck;
     if (options.clientId && options.registrationName && options.stateRoot) {
-      const operation = await registrationOptions(options);
+      const operation = await registrationOptions(options, dependencies.environment ?? process.env);
       integrationCheck = () => inspectOwnedIntegration(operation);
     }
     const checks = await (dependencies.runDoctor ?? runDoctor)({ runtimeRoot, contextRoot, integrationCheck });
@@ -231,7 +243,7 @@ export async function runStandardSetupCommand(command, options = {}, dependencie
   }
 
   await validateContext(runtimeRoot, contextRoot, dependencies.loadRuntimeConfig ?? loadRuntimeConfig);
-  const operation = await registrationOptions(options);
+  const operation = await registrationOptions(options, dependencies.environment ?? process.env);
   if (command === "plan") {
     const plan = await (dependencies.planIntegration ?? planIntegration)(operation);
     return { ok: true, status: plan.status, dryRun: true, plan };

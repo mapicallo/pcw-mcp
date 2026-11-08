@@ -151,6 +151,86 @@ test("plan routes through 30C and performs no mutation", () =>
     await assert.rejects(access(join(stateRoot, "integrations.json")), { code: "ENOENT" });
   }));
 
+test("plan propagates explicit local app data for Cursor cold-start discovery", () =>
+  fixture(async ({ root, common, configPath, stateRoot }) => {
+    const localAppData = join(root, "Synthetic Local App Data");
+    const cursorExecutable = join(localAppData, "Programs", "Cursor", "Cursor.exe");
+    await rm(configPath);
+    await mkdir(dirname(cursorExecutable), { recursive: true });
+    await writeFile(cursorExecutable, "synthetic cursor marker", "utf8");
+
+    const result = await runStandardSetupCommand("plan", {
+      ...common,
+      localAppData
+    });
+
+    assert.equal(result.status, "cursor-config-missing");
+    assert.equal(result.plan.changeRequired, true);
+    assert.equal(result.plan.willCreateConfig, true);
+    assert.equal(result.plan.configPath, configPath);
+    assert.deepEqual(parseStandardSetupArgs([
+      "plan", "--local-app-data", localAppData
+    ]), {
+      command: "plan",
+      options: { localAppData }
+    });
+    await assert.rejects(access(configPath), { code: "ENOENT" });
+    await assert.rejects(access(join(stateRoot, "integrations.json")), { code: "ENOENT" });
+  }));
+
+test("CLI plan falls back to LOCALAPPDATA for Cursor cold-start discovery", () =>
+  fixture(async ({ root, common, configPath, stateRoot }) => {
+    const localAppData = join(root, "Synthetic Environment Local App Data");
+    const cursorExecutable = join(localAppData, "Programs", "Cursor", "Cursor.exe");
+    await rm(configPath);
+    await mkdir(dirname(cursorExecutable), { recursive: true });
+    await writeFile(cursorExecutable, "synthetic cursor marker", "utf8");
+
+    const result = await execFileAsync(process.execPath, [
+      helperPath, "plan",
+      "--runtime-root", common.runtimeRoot,
+      "--context-root", common.contextRoot,
+      "--state-root", common.stateRoot,
+      "--home-directory", common.homeDirectory,
+      "--registration-name", common.registrationName,
+      "--client", common.clientId
+    ], {
+      env: { ...process.env, LOCALAPPDATA: localAppData }
+    });
+    const payload = JSON.parse(result.stdout);
+
+    assert.equal(payload.status, "cursor-config-missing");
+    assert.equal(payload.plan.changeRequired, true);
+    assert.equal(payload.plan.willCreateConfig, true);
+    assert.equal(payload.plan.configPath, configPath);
+    assert.equal(result.stderr, "");
+    await assert.rejects(access(configPath), { code: "ENOENT" });
+    await assert.rejects(access(join(stateRoot, "integrations.json")), { code: "ENOENT" });
+  }));
+
+test("CLI plan remains conservative when LOCALAPPDATA is unavailable", () =>
+  fixture(async ({ common, configPath, stateRoot }) => {
+    await rm(configPath);
+    const env = { ...process.env };
+    delete env.LOCALAPPDATA;
+    const result = await execFileAsync(process.execPath, [
+      helperPath, "plan",
+      "--runtime-root", common.runtimeRoot,
+      "--context-root", common.contextRoot,
+      "--state-root", common.stateRoot,
+      "--home-directory", common.homeDirectory,
+      "--registration-name", common.registrationName,
+      "--client", common.clientId
+    ], { env });
+    const payload = JSON.parse(result.stdout);
+
+    assert.equal(payload.status, "not-installed");
+    assert.equal(payload.plan.changeRequired, false);
+    assert.equal(result.stderr, "");
+    await assert.rejects(access(configPath), { code: "ENOENT" });
+    await assert.rejects(access(join(stateRoot, "integrations.json")), { code: "ENOENT" });
+  }));
+
 test("apply routes through 30C and writes only the injected Cursor configuration", () =>
   fixture(async ({ common, configPath, stateRoot }) => {
     const result = await runStandardSetupCommand("apply", common);

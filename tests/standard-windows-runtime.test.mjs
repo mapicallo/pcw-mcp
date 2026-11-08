@@ -182,6 +182,34 @@ test("runtime preserves canonical Core bytes and deterministic provenance", wind
     ]);
     assert.equal(helper.stderr, "");
     assert.equal(JSON.parse(helper.stdout).status, "valid");
+
+    const homeDirectory = join(fixture.root, "helper home");
+    const localAppData = join(fixture.root, "helper local app data");
+    const stateRoot = join(fixture.root, "helper state");
+    const configPath = join(homeDirectory, ".cursor", "mcp.json");
+    const cursorDirectory = join(localAppData, "Programs", "Cursor");
+    await mkdir(cursorDirectory, { recursive: true });
+    await writeFile(join(cursorDirectory, "Cursor.exe"), "synthetic cursor marker");
+    const coldStartPlan = await execFileAsync(join(outputA, "runtime", "node.exe"), [
+      join(outputA, "core", "standard-tools", "standard-setup.mjs"),
+      "plan",
+      "--runtime-root", outputA,
+      "--context-root", contextRoot,
+      "--state-root", stateRoot,
+      "--home-directory", homeDirectory,
+      "--registration-name", "PCW - Packaged Helper Cold Start",
+      "--client", "cursor"
+    ], {
+      env: { ...process.env, LOCALAPPDATA: localAppData }
+    });
+    const coldStartPayload = JSON.parse(coldStartPlan.stdout);
+    assert.equal(coldStartPlan.stderr, "");
+    assert.equal(coldStartPayload.status, "cursor-config-missing");
+    assert.equal(coldStartPayload.plan.changeRequired, true);
+    assert.equal(coldStartPayload.plan.willCreateConfig, true);
+    assert.equal(coldStartPayload.plan.configPath, configPath);
+    await assert.rejects(access(configPath), { code: "ENOENT" });
+    await assert.rejects(access(join(stateRoot, "integrations.json")), { code: "ENOENT" });
   }));
 
 test("incompatible package lock fails without replacing an existing runtime", windowsOnly, () =>
