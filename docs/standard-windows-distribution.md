@@ -1,7 +1,7 @@
 # Standard Windows Distribution Architecture and Runtime (BLOCK 30A/30B)
 
 Status: **PCW 0.3.0-beta.3 Cursor integration hardening in development; not released**.
-Development identity: PCW Core `0.3.0-beta.3-dev.0` (`pcw-mcp`).
+Freeze-candidate identity: PCW Core `0.3.0-beta.3` (`pcw-mcp`).
 Frozen release baseline: `v0.3.0-beta.2`; development outputs do not replace that release.
 Branch inspected: `v0.3-beta.3-cursor-hardening`.
 

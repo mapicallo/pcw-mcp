@@ -67,7 +67,7 @@ async function coldStartFixture(run) {
         registrationName: "PCW - Cold Start",
         launcherPath,
         contextRoot,
-        pcwVersion: "0.3.0-beta.3-dev.0"
+        pcwVersion: "0.3.0-beta.3"
       }
     };
     return await run({ root, configPath, stateRoot, options });

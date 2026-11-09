@@ -80,7 +80,7 @@ async function withColdStartFixture(run) {
         registrationName,
         launcherPath,
         contextRoot,
-        pcwVersion: "0.3.0-beta.3-dev.0"
+        pcwVersion: "0.3.0-beta.3"
       },
       clock: fixedClock
     };
@@ -147,7 +147,7 @@ test("Cursor plan reports a missing canonical global config when Cursor is insta
         registrationName: "PCW - Cursor Cold Start",
         launcherPath,
         contextRoot,
-        pcwVersion: "0.3.0-beta.3-dev.0"
+        pcwVersion: "0.3.0-beta.3"
       },
       clock: fixedClock
     });
@@ -200,7 +200,7 @@ test("Cursor apply bootstraps the missing canonical global config", async () => 
         registrationName,
         launcherPath,
         contextRoot,
-        pcwVersion: "0.3.0-beta.3-dev.0"
+        pcwVersion: "0.3.0-beta.3"
       },
       clock: fixedClock
     });
