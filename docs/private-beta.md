@@ -1,6 +1,8 @@
 # PCW-MCP Private Beta Guide
 
-PCW-MCP `0.3.0-beta.1` is the frozen authorized private-beta release. Current source is the untagged, unpublished `0.3.0-beta.2` release candidate and must not replace beta.1 artifacts before formal authorization. The historical `0.2.0-beta.4` baseline also remains frozen and tagged. PCW is local-only; remote MCP transport is not available.
+PCW-MCP `0.3.0-beta.3` is the current frozen, tagged, authorized restricted
+private-beta release. It is not GA or stable. Earlier beta tags and artifacts
+remain immutable. PCW is local-only; remote MCP transport is not available.
 
 ## Prerequisites
 
@@ -109,7 +111,11 @@ This compiles, runs the standard suite, creates and clean-installs a temporary p
 
 ## Handoff Artifact
 
-The owner can build the ignored local handoff kit with `npm run package:private-beta`. A beta.2 candidate ZIP and external SHA-256 file would be written under `artifacts/private-beta/0.3.0-beta.2/`. The command verifies the candidate, extracts the ZIP, installs its exact tarball, and exercises context onboarding, inventory replacement, workstream creation, and continuity concurrency through the installed MCP server before retaining the artifacts. This candidate step is not release-grade and does not replace the frozen beta.1 kit.
+The owner can build an ignored engineering handoff candidate with
+`npm run package:private-beta`. For the current version it writes under
+`artifacts/private-beta/0.3.0-beta.3/` and performs its existing package smoke
+checks. This engineering command is not authority to rebuild or replace the
+frozen beta.3 release artifacts.
 
 The kit is for an authorized tester under `PRIVATE-BETA-TERMS.md`; this command does not publish or transmit it.
 

@@ -1,9 +1,10 @@
 # Standard Windows Distribution Architecture and Runtime (BLOCK 30A/30B)
 
-Status: **PCW 0.3.0-beta.3 Cursor integration hardening in development; not released**.
-Freeze-candidate identity: PCW Core `0.3.0-beta.3` (`pcw-mcp`).
-Frozen release baseline: `v0.3.0-beta.2`; development outputs do not replace that release.
-Branch inspected: `v0.3-beta.3-cursor-hardening`.
+Status: **PCW 0.3.0-beta.3 released as a restricted private beta; not GA or stable**.
+Released identity: PCW Core `0.3.0-beta.3` (`pcw-mcp`), annotated tag
+`v0.3.0-beta.3`, source commit
+`d7f91a44d1c544b38330470cc206f05ec9aad063`.
+Previous release baseline `v0.3.0-beta.2` remains frozen and unchanged.
 
 Related prior decision: [distribution-architecture.md](distribution-architecture.md)
 (BLOCK 20). This document specializes the **Standard User / Windows-first**
@@ -76,10 +77,11 @@ Core is **relocatable** if:
    does).
 
 Core does **not** assume the git checkout. It does assume a Node module layout
-compatible with `createRequire` + normal `node_modules` resolution. There is
-**no** init API that creates a blank context root; templates
-(`templates/pcw-minimal.yml`, `templates/pcw.yml`, …) are the intended
-bootstrap content for an installer companion.
+compatible with `createRequire` + normal `node_modules` resolution. Core owns
+the bounded empty-context initializer used by Standard setup; it is not an MCP
+tool. Standard setup delegates to that initializer rather than generating YAML.
+Packaged templates (`templates/pcw-minimal.yml`, `templates/pcw.yml`, …) remain
+examples and manual bootstrap inputs.
 
 ### What Core is not
 
@@ -272,7 +274,7 @@ User-facing summary:
 ```text
 PCW Doctor
 ✓ Runtime
-✓ PCW 0.3.0-beta.2
+✓ PCW 0.3.0-beta.3
 ✓ Context root
 ✓ Configuration
 ✓ Client integration (if selected)
@@ -309,12 +311,12 @@ UI must state this explicitly.
 Existing schema already allows arbitrary `artifactId` / `type` identifiers and
 `target: { os: windows, arch: x64 }`.
 
-Proposed addition (when built):
+Current release-manifest descriptor:
 
 ```yaml
 artifactId: standard-windows-installer
 type: windows-installer
-fileName: PCW-Setup-0.3.0-beta.2.exe
+fileName: PCW-Setup-0.3.0-beta.3.exe
 target: { os: windows, arch: x64 }
 ```
 
